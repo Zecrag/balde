@@ -24,12 +24,15 @@ const EXCLUIR = [
   'DESTINOS.md',
   'config/clientes.json',
   'config/grupos.json',
+  'config/nomes-grupos.json',
   'link-cache',
   'logs',
   'node_modules',
   'conectores/baileys/node_modules',
   '.git',
   '.overclock-app',
+  '.agents',
+  '.gemini',
   '.exportar-proibidos'
 ];
 
@@ -118,6 +121,10 @@ if (fs.existsSync(gruposPath)) {
     }
   }
 }
+
+// O nome do próprio produto aparece no código todo e não é segredo; os jids
+// e convites do grupo dele continuam barrados acima.
+termosProibidos.delete('balde');
 
 // 4. Varredura final
 console.log("Realizando varredura final...");

@@ -183,7 +183,7 @@ describe('GB-35 — fusão de tarefas de mensagens contíguas', () => {
     const r = await processar(msg('se der, programa o impulsionamento pra sexta'), ctx.store, opcoes);
     assert.equal(r.novas.length, 0);
     assert.equal(r.atualizadas[0].id, avaliar.id);
-    assert.equal(r.atualizadas[0].prazo, 'sexta');
+    assert.equal(r.atualizadas[0].prazo, '2026-10-09');
     assert.equal(r.atualizadas[0].fontes.length, 2);
     assert.equal(ctx.store.lerTarefas().length, 1);
   });

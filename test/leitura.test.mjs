@@ -185,7 +185,7 @@ describe('lerAgora — cursor e uma chamada por grupo', () => {
     const ev = evolution(msgs);
     const l = llm({ n: [] });
     await lerAgora(opcoes(ev, l, { gruposConfig: [GRUPOS[0]] }));
-    writeFileSync(join(dados, 'uso-llm.jsonl'), JSON.stringify({ ts: new Date().toISOString(), tipo: 'extracao', custoUSD: 0.6 }) + '\n');
+    writeFileSync(join(dados, 'uso-llm.jsonl'), JSON.stringify({ ts: new Date(T0 * 1000).toISOString(), tipo: 'extracao', custoUSD: 0.6 }) + '\n');
     msgs[G1].push(reg(G1, 'b1', 3, 'preciso do boleto'));
 
     const r = await lerAgora(opcoes(ev, l, { gruposConfig: [GRUPOS[0]] }));

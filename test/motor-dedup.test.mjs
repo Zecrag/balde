@@ -107,7 +107,7 @@ describe('GB-23b — complemento atualiza a tarefa aberta (sem duplicar)', () =>
     assert.equal(t.estado, ESTADOS.PRONTA);
     assert.deepEqual(t.faltando, []);
     assert.equal(t.etapa, 'entrega');
-    assert.equal(t.prazo, 'sexta-feira', 'prazo null do complemento não apaga o prazo');
+    assert.equal(t.prazo, '2026-10-09', 'prazo null do complemento não apaga o prazo');
     assert.match(t.descricao, /\[Atualização\].*Black Friday/s);
     assert.equal(t.fontes.length, 2);
   });

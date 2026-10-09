@@ -36,6 +36,7 @@
 <!-- ── Leitura do WhatsApp (GB-45) ───────────────────────── -->
 <section class="leitura-barra" aria-label="Leitura do WhatsApp">
   <span class="tag-leitura" id="tag-leitura" title="Quando o Balde leu os grupos pela última vez e quanto custou">Última leitura –</span>
+  <button class="btn btn-ghost btn-sm" id="btn-historico" type="button" aria-haspopup="dialog">Histórico</button>
   <button class="btn btn-primary btn-sm" id="btn-ler" type="button" aria-describedby="ler-resultado">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     Atualizar
@@ -214,6 +215,18 @@
     <button class="btn btn-ghost" id="dlg-confirmar-nao" type="button">Cancelar</button>
     <button class="btn btn-danger" id="dlg-confirmar-sim" type="button">Remover</button>
   </div>
+</dialog>
+
+<!-- ── Histórico de Leituras (GB-50) ──────────────────────── -->
+<dialog class="modal-grupos modal-historico" id="dlg-historico" aria-labelledby="dlg-hist-titulo">
+  <div class="mg-cabecalho">
+    <h2 class="modal-titulo" id="dlg-hist-titulo">Histórico de leituras</h2>
+    <button class="btn btn-ghost btn-icone" id="dlg-hist-fechar" type="button" aria-label="Fechar histórico">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <p class="mg-ajuda" id="dlg-hist-subtitulo">Últimas mensagens processadas pelo Balde.</p>
+  <div id="dlg-hist-corpo" aria-live="polite"></div>
 </dialog>
 
 <!-- ── Toast ─────────────────────────────────────────────── -->

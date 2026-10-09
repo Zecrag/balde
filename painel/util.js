@@ -13,6 +13,8 @@
 
 // ── Datas dd/mm/aa ────────────────────────────────────────
 
+const pad = n => String(n).padStart(2, '0');
+
 /** Máscara: só números, barras automáticas, no máximo dd/mm/aa (8 caracteres). */
 export function mascaraData(valor) {
   let d = String(valor ?? '').replace(/\D/g, '');
@@ -41,6 +43,208 @@ export function dataValida(valor) {
   return dt.getUTCFullYear() === a && dt.getUTCMonth() === mes - 1 && dt.getUTCDate() === d;
 }
 
+/** "2026-12-31" ou ISO → "31/12/26" (sem fuso: data-calendário). */
+export function fmtData(iso) {
+  if (!iso) return null;
+  const s = String(iso).trim();
+  if (/^\d{2}\/\d{2}\/\d{2,4}$/.test(s)) return dataCurta(s);
+  const [a, m, d] = s.slice(0, 10).split('-');
+  return d && m && a && a.length === 4 ? `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${a.slice(2)}` : null;
+}
+
+/** Extrai 'AAAA-MM-DD' de ISO ou de dd/mm/aa ou texto relativo ("hoje", "amanhã", etc.). */
+export function diaISO(v, agora = new Date()) {
+  if (!v) return '';
+  const s = String(v).trim();
+  if (!s || s === 'null' || s === 'sem prazo' || s === 'nenhum' || s === 'sem data') return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(20)?(\d{2}|\d{4})$/);
+  if (m) {
+    const d = m[1].padStart(2, '0');
+    const mes = m[2].padStart(2, '0');
+    const ano = m[4].length === 4 ? m[4] : `20${m[4]}`;
+    return `${ano}-${mes}-${d}`;
+  }
+  const sMin = s.toLowerCase();
+  if (/\bhoje\b/i.test(sMin)) return diaLocal(agora);
+  if (/(?:^|\s)amanh[aã](?:$|\s|[.,!])/i.test(sMin) && !/depois/i.test(sMin)) {
+    return diaLocal(new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + 1));
+  }
+  if (/depois\s+de\s+amanh[aã]/i.test(sMin)) {
+    return diaLocal(new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + 2));
+  }
+  const mDia = sMin.match(/\bdia\s+(\d{1,2})\b/);
+  if (mDia) {
+    const d = Number(mDia[1]);
+    let mes = agora.getMonth();
+    let ano = agora.getFullYear();
+    if (d < agora.getDate()) {
+      mes += 1;
+      if (mes > 11) { mes = 0; ano += 1; }
+    }
+    return `${ano}-${String(mes + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+  const diasSemana = { domingo: 0, segunda: 1, terca: 2, terça: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6, sábado: 6 };
+  for (const [nome, target] of Object.entries(diasSemana)) {
+    if (new RegExp(`(?:^|\\s)${nome}(?:-feira)?(?:$|\\s|[.,!])`, 'i').test(sMin)) {
+      let diff = target - agora.getDay();
+      if (diff <= 0) diff += 7;
+      if (/\b(que\s+vem|seguinte|outra)\b/i.test(sMin)) diff += 7;
+      return diaLocal(new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + diff));
+    }
+  }
+  if (/\bsemana\s+que\s+vem\b/i.test(sMin)) {
+    return diaLocal(new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + 7));
+  }
+  return '';
+}
+
+/** Formata data/hora para dd/mm/aa hh:mm. */
+export function fmtDataHoraCurta(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso).slice(0, 16);
+  const dia = String(d.getDate()).padStart(2, '0');
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const ano = String(d.getFullYear()).slice(2);
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${dia}/${mes}/${ano} ${h}:${min}`;
+}
+
+/** Dias de calendário de hoje até a data (negativo = já passou). */
+export function diasAteData(iso, agora = new Date()) {
+  const dIso = diaISO(iso, agora);
+  if (!dIso) return null;
+  const [a, m, d] = dIso.split('-').map(Number);
+  if (!a || !m || !d) return null;
+  return Math.round((Date.UTC(a, m - 1, d) - Date.UTC(agora.getFullYear(), agora.getMonth(), agora.getDate())) / 86_400_000);
+}
+
+/**
+ * GB-50: Rótulo de prazo para o topo do card.
+ * - "atrasada N d" se passou da data
+ * - "vence hoje" se é hoje
+ * - "falta 1 dia" se é amanhã
+ * - "faltam N dias" se faltam 2 ou mais dias
+ * - null se não há prazo (sem prazo: não mostra nada)
+ */
+export function rotuloPrazo(prazo, agora = new Date()) {
+  if (!prazo) return null;
+  const n = diasAteData(prazo, agora);
+  if (n === null || !Number.isFinite(n)) return null;
+  if (n < 0) return `atrasada ${-n} d`;
+  if (n === 0) return 'vence hoje';
+  if (n === 1) return 'falta 1 dia';
+  return `faltam ${n} dias`;
+}
+
+/**
+ * GB-51: Formatação do prazo do projeto / cliente:
+ * - "atrasado N d" se n < 0
+ * - "vence hoje" se n === 0
+ * - "faltam N d" se n > 0
+ * - null se não há prazo
+ *
+ * Classes de cor:
+ * - 'atrasado' (vermelho discreto) quando n < 0
+ * - 'amarelo' (amarelo discreto) quando faltarem até 3 dias (0 <= n <= 3)
+ * - '' (normal / neutro discreto) quando n > 3
+ */
+export function formatarPrazoProjeto(prazo, agora = new Date()) {
+  if (!prazo) return null;
+  const n = diasAteData(prazo, agora);
+  if (n === null || !Number.isFinite(n)) return null;
+
+  let texto;
+  let classe = '';
+
+  if (n < 0) {
+    texto = `atrasado ${-n} d`;
+    classe = 'atrasado';
+  } else if (n === 0) {
+    texto = 'vence hoje';
+    classe = 'amarelo';
+  } else {
+    texto = `faltam ${n} d`;
+    if (n <= 3) classe = 'amarelo';
+  }
+
+  return { texto, classe, dias: n };
+}
+
+/**
+ * GB-51: Prazo do projeto:
+ * - O "Fim" do projeto (se houver e for válido).
+ * - Se o projeto não tiver Fim, o prazo mais próximo entre as tarefas abertas dele.
+ * - Se não houver nenhum dos dois, null.
+ */
+export function obterPrazoProjeto(p, tarefasAbertas = [], agora = new Date()) {
+  const fim = p?.fim ? diaISO(p.fim, agora) : '';
+  if (fim) return fim;
+
+  const prazos = (tarefasAbertas || [])
+    .filter(t => t && t.estado !== 'feita' && t.estado !== 'descartada' && t.prazo)
+    .map(t => diaISO(t.prazo, agora))
+    .filter(Boolean);
+
+  if (!prazos.length) return null;
+  prazos.sort();
+  return prazos[0];
+}
+
+/**
+ * GB-51: Prazo do cliente:
+ * - O prazo mais próximo entre os projetos ativos do cliente.
+ * - Se não houver nenhum, null.
+ */
+export function obterPrazoCliente(prazosProjetos = []) {
+  const validos = (prazosProjetos || []).filter(Boolean);
+  if (!validos.length) return null;
+  validos.sort();
+  return validos[0];
+}
+
+const ORDEM_ESTADO_DEF = { precisa_decisao: 0, aguardando_info: 1, pronta: 2, em_execucao: 3 };
+
+/**
+ * GB-50: Ordena tarefas por prazo mais próximo primeiro, e sem prazo por último.
+ */
+export function compararPorPrazo(a, b) {
+  const da = a?.prazo ? diaISO(a.prazo) : '';
+  const db = b?.prazo ? diaISO(b.prazo) : '';
+  if (da && !db) return -1;
+  if (!da && db) return 1;
+  if (da && db) {
+    const cmp = da.localeCompare(db);
+    if (cmp !== 0) return cmp;
+  }
+  const ea = ORDEM_ESTADO_DEF[a?.estado] ?? 9;
+  const eb = ORDEM_ESTADO_DEF[b?.estado] ?? 9;
+  return ea - eb;
+}
+
+/**
+ * GB-50: Formata destino para o log de leituras.
+ * Devolve: empresa · projeto ou "descartada: motivo"
+ */
+export function formatarDestinoLog(destino, motivo) {
+  if (!destino) return motivo ? `descartada: ${motivo}` : '–';
+  if (destino === 'descartada' || destino?.tipo === 'descartada') {
+    return motivo ? `descartada: ${motivo}` : 'descartada';
+  }
+  if (typeof destino === 'object') {
+    const e = destino.empresa ?? '';
+    const p = destino.projeto ?? '';
+    const ep = e && p ? `${e} · ${p}` : e || p;
+    if (ep) return ep;
+  }
+  if (typeof destino === 'string') {
+    return motivo ? `${destino}: ${motivo}` : destino;
+  }
+  return motivo ? `descartada: ${motivo}` : '–';
+}
+
 // ── Moeda BR ──────────────────────────────────────────────
 
 /** Máscara de moeda: os dígitos são centavos. "600000" → "6.000,00" · "" → "". */
@@ -61,7 +265,6 @@ export function moedaDoArquivo(valor) {
 // ── Uso da IA (aba Custos) ────────────────────────────────
 
 const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
-const pad = n => String(n).padStart(2, '0');
 
 /** Data local → "aaaa-mm-dd". */
 export function diaLocal(d = new Date()) {

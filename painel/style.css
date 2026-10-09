@@ -985,7 +985,8 @@ main {
 .ge-contadores { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); flex: 1 1 auto; font-weight: 500; }
 .ge-contadores .chip { padding: 0 8px; line-height: 1.6; }
 .ge-abertas { font-size: var(--ts-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; margin-right: var(--sp-1); }
-.ge-toggle .ge-ganho { margin-left: auto; }
+.ge-valores { margin-left: auto; display: inline-flex; align-items: center; gap: var(--sp-2); }
+.ge-toggle .ge-valores, .ge-toggle .ge-ganho { margin-left: auto; }
 .ge-corpo { padding-top: var(--sp-3); }
 .ge-corpo[hidden] { display: none; }
 .gp-vazio { font-size: var(--ts-xs); color: var(--text-dim); padding: 0 0 var(--sp-2) var(--sp-3); }
@@ -1015,7 +1016,7 @@ main {
   }
   .ge-seta { grid-area: seta; }
   .ge-toggle .ge-nome { grid-area: nome; }
-  .ge-toggle .ge-ganho { grid-area: ganho; margin-left: 0; }
+  .ge-toggle .ge-valores, .ge-toggle .ge-ganho { grid-area: ganho; margin-left: 0; justify-content: flex-end; }
   .ge-contadores { grid-area: cont; }
   .grupo-empresa { margin-bottom: var(--sp-1); }
 }
@@ -1123,3 +1124,193 @@ main {
   .gp-ler { margin-left: 0; }
 }
 .pj-status.erro { color: var(--u-critical); }
+
+/* ── GB-50 · Data de criação, prazo, notas, links e Histórico ── */
+.t-criada {
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--text-muted);
+  opacity: 0.85;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+.t-prazo.atrasada { color: var(--u-critical); font-weight: 600; }
+.t-prazo.urgente { color: var(--u-high); font-weight: 500; }
+
+.tarefa-nota {
+  margin: var(--sp-2) 0;
+  padding: var(--sp-2) var(--sp-3);
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  font-size: var(--ts-sm);
+  color: var(--text);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.tarefa-links {
+  margin: var(--sp-2) 0;
+  font-size: var(--ts-sm);
+}
+.tarefa-links strong {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--ts-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--sp-1);
+}
+.lista-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lista-links li a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  font-size: var(--ts-sm);
+}
+.lista-links li a:hover {
+  filter: brightness(1.2);
+}
+
+.modal-historico {
+  max-width: 640px;
+  width: min(640px, calc(100vw - 32px));
+}
+.gp-hist {
+  min-height: 32px;
+  padding: 2px 10px;
+  color: var(--text-muted);
+  font-size: var(--ts-xs);
+}
+.gp-hist:hover { color: var(--accent-h); }
+.hist-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  max-height: calc(80vh - 120px);
+  overflow-y: auto;
+  padding-right: var(--sp-1);
+}
+.hist-bloco {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #111624;
+  overflow: hidden;
+}
+.hist-bloco-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: #161d2e;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--ts-xs);
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+.hist-data { font-variant-numeric: tabular-nums; }
+.hist-grupo { font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+.hist-qtd { font-size: 11px; opacity: 0.8; margin-left: auto; }
+.hist-msgs {
+  display: flex;
+  flex-direction: column;
+}
+.hist-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.hist-item:last-child { border-bottom: 0; }
+.hist-item.clicavel {
+  cursor: pointer;
+  transition: background var(--dur-short) ease-out;
+}
+.hist-item.clicavel:hover, .hist-item.clicavel:focus-visible {
+  background: rgba(255, 255, 255, 0.05);
+  outline: none;
+}
+.hist-item-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.hist-resumo {
+  font-size: var(--ts-sm);
+  color: var(--text);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.hist-destino {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--ts-xs);
+  color: var(--text-muted);
+}
+.hist-destino.descartada { color: var(--text-muted); font-style: italic; }
+.hist-destino.atribuida { color: var(--accent); }
+.hist-link-seta {
+  color: var(--text-muted);
+  font-size: var(--ts-sm);
+  padding-left: var(--sp-1);
+}
+.hist-item.clicavel:hover .hist-link-seta {
+  color: var(--accent);
+}
+.destaque-tarefa {
+  animation: pulso-destaque 2s ease-out;
+}
+@keyframes pulso-destaque {
+  0% { outline: 2px solid var(--accent); box-shadow: 0 0 12px rgba(79, 110, 247, 0.5); }
+  50% { outline: 2px solid var(--accent); box-shadow: 0 0 16px rgba(79, 110, 247, 0.7); }
+  100% { outline: 2px solid transparent; box-shadow: none; }
+}
+@media (max-width: 640px) {
+  .t-info { flex-wrap: wrap; gap: 4px; }
+  .hist-grupo { max-width: 160px; }
+}
+
+/* ── GB-51 · Etiqueta de prazo no projeto e cliente ───────── */
+.etiqueta-prazo {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.etiqueta-prazo.amarelo {
+  color: var(--u-high);
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+  font-weight: 600;
+}
+.etiqueta-prazo.atrasado {
+  color: var(--u-critical);
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  font-weight: 600;
+}

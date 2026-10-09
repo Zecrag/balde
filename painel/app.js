@@ -28,6 +28,8 @@
 import {
   mascaraData, dataCurta, dataValida, mascaraMoeda, moedaDoArquivo,
   normalizarUso, normalizarLeitura, intervalo, preencherDias, fmtUSD, fmtTokens, resultadoDosGrupos,
+  fmtData, diaISO, fmtDataHoraCurta, diasAteData, rotuloPrazo, formatarPrazoProjeto,
+  obterPrazoProjeto, obterPrazoCliente, compararPorPrazo, formatarDestinoLog,
 } from './util.js';
 
 // ── Configuração ───────────────────────────────────────────
@@ -72,6 +74,9 @@ const $sel_st  = document.getElementById('filtro-estado');
 const $sel_p   = document.getElementById('filtro-projeto');
 const $dlgGrupo = document.getElementById('dlg-grupo');
 const $dlgConfirmar = document.getElementById('dlg-confirmar');
+const $dlgHistorico = document.getElementById('dlg-historico');
+const $dlgHistCorpo = document.getElementById('dlg-hist-corpo');
+const $btnHistorico = document.getElementById('btn-historico');
 const $nav     = document.getElementById('nav-empresas');
 const $recolher = document.getElementById('btn-recolher');
 
@@ -94,38 +99,51 @@ const labelEstado = e => ROTULO[e] ?? e;
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 const fmtGanho = v => BRL.format(Number(v) || 0);
 
-/** "2026-12-31" ou ISO → "31/12/26" (sem fuso: data-calendário). */
-function fmtData(iso) {
-  if (!iso) return null;
-  const [a, m, d] = String(iso).slice(0, 10).split('-');
-  return d && m && a ? `${d}/${m}/${a.slice(2)}` : null;
+const diasAte = diasAteData;
+
+function classePrazo(prazo) {
+  if (!prazo) return '';
+  const n = diasAteData(prazo);
+  if (n === null) return '';
+  if (n < 0) return 'atrasada';
+  if (n === 0) return 'vence';
+  if (n <= 2) return 'urgente';
+  return '';
 }
 
-const diaISO = v => (v ? String(v).slice(0, 10) : '');
-
-function venceLogo(iso) {
-  if (!iso) return false;
-  return new Date(diaISO(iso) + 'T23:59:59') <= new Date(Date.now() + 3 * 86_400_000);
+function renderNota(nota) {
+  if (!nota || !String(nota).trim()) return '';
+  return `<div class="tarefa-nota"><strong>Nota:</strong> ${esc(String(nota).trim())}</div>`;
 }
 
-/** Dias de calendário de hoje até a data (negativo = já passou). */
-function diasAte(iso) {
-  const [a, m, d] = diaISO(iso).split('-').map(Number);
-  if (!a) return null;
-  const hoje = new Date();
-  return Math.round((Date.UTC(a, m - 1, d) - Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())) / 86_400_000);
+function renderLinks(links) {
+  if (!links) return '';
+  const arr = Array.isArray(links) ? links : [links];
+  const lista = arr.map(l => String(l ?? '').trim()).filter(Boolean);
+  if (!lista.length) return '';
+  return `<div class="tarefa-links">
+    <strong>Links:</strong>
+    <ul class="lista-links">
+      ${lista.map(l => {
+        const href = /^https?:\/\//i.test(l) ? l : `https://${l}`;
+        return `<li><a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(l)}</a></li>`;
+      }).join('')}
+    </ul>
+  </div>`;
 }
 
-/** "01/01/26 – 31/12/26 · faltam 84 dias" para o cabeçalho do projeto. */
+/** GB-51: Etiqueta pequena com prazo ("faltam N d", "vence hoje", "atrasado N d"). */
+function renderEtiquetaPrazo(prazo) {
+  const info = formatarPrazoProjeto(prazo);
+  if (!info) return '';
+  return `<span class="etiqueta-prazo ${info.classe}" title="Prazo">${esc(info.texto)}</span>`;
+}
+
+/** "01/01/26 – 31/12/26" para o cabeçalho do projeto. */
 function periodoProjeto(p) {
   if (!p?.inicio && !p?.fim) return '';
   const datas = `${fmtData(p.inicio) ?? '…'} – ${fmtData(p.fim) ?? '…'}`;
-  if (!p.fim) return `<span class="gp-periodo">${datas}</span>`;
-  const n = diasAte(p.fim);
-  const [txt, cls] = n < 0 ? [`encerrado há ${-n} dia${n === -1 ? '' : 's'}`, 'vencido']
-    : n === 0 ? ['termina hoje', 'vencido']
-    : [`falta${n === 1 ? '' : 'm'} ${n} dia${n === 1 ? '' : 's'}`, n <= 15 ? 'perto' : ''];
-  return `<span class="gp-periodo" title="Início – fim do projeto">${datas} · <span class="gp-dias ${cls}">${txt}</span></span>`;
+  return `<span class="gp-periodo" title="Início – fim do projeto">${datas}</span>`;
 }
 
 function classeUrgencia(u) {
@@ -356,6 +374,26 @@ function render() {
     const idCorpo = `ge-corpo-${navItens.length}`;
     navItens.push({ empresa, abertas: conta.abertas, idSecao: `ge-${navItens.length}` });
 
+    // GB-51: Prazos dos projetos ativos e prazo mais próximo para o cliente
+    const prazosProjetos = [];
+    const mapaPrazoProj = new Map();
+    for (const projeto of projetos) {
+      const p = infoProj[projeto];
+      const ativasProj = _tarefas.filter(t => (t.empresa || SEM_EMPRESA) === empresa && (t.projeto || SEM_PROJETO) === projeto && t.estado !== 'feita' && t.estado !== 'descartada');
+      const prazoProj = obterPrazoProjeto(p, ativasProj);
+      if (prazoProj) {
+        prazosProjetos.push(prazoProj);
+        mapaPrazoProj.set(projeto, prazoProj);
+      }
+    }
+    const prazoCliente = obterPrazoCliente(prazosProjetos);
+    const etiquetaCliente = renderEtiquetaPrazo(prazoCliente);
+
+    const htmlValores = [
+      info ? `<span class="ge-ganho" title="Ganho total da empresa (soma dos projetos ativos)">${fmtGanho(info.ganhoTotal)}</span>` : '',
+      etiquetaCliente,
+    ].filter(Boolean).join('');
+
     html += `<section class="grupo-empresa ${aberta ? 'aberta' : 'recolhida'}" id="ge-${navItens.length - 1}" aria-label="Empresa ${esc(empresa)}">
       <h2 class="grupo-empresa-titulo">
         <button class="ge-toggle" type="button" data-toggle-empresa="${esc(empresa)}" data-drop-empresa="${esc(empresa)}"
@@ -363,21 +401,25 @@ function render() {
           <span class="ge-seta">${ICONE.chevronDir}</span>
           <span class="ge-nome">${esc(empresa)}</span>
           ${contadoresEmpresa(conta)}
-          ${info ? `<span class="ge-ganho" title="Ganho total da empresa (soma dos projetos ativos)">${fmtGanho(info.ganhoTotal)}</span>` : ''}
+          ${htmlValores ? `<span class="ge-valores">${htmlValores}</span>` : ''}
         </button>
       </h2>
       <div class="ge-corpo" id="${idCorpo}" ${aberta ? '' : 'hidden'}>`;
 
     for (const projeto of projetos) {
       const { ativas, feitas } = grupos.get(empresa).get(projeto);
-      ativas.sort((a, b) => posEstado(a) - posEstado(b));   // sort estável: mantém a ordem da API no empate
+      ativas.sort(compararPorPrazo);
       const p = infoProj[projeto];
+      const prazoProj = mapaPrazoProj.get(projeto);
+      const etiquetaProj = renderEtiquetaPrazo(prazoProj);
+
       html += `<div class="grupo-projeto" aria-label="Projeto ${esc(projeto)}">
         <h3 class="grupo-projeto-titulo" data-drop-empresa="${esc(empresa)}" data-drop-projeto="${esc(projeto)}">
           <span class="gp-nome">${esc(projeto)}</span>
           <span class="gp-conta" title="Tarefas abertas">${ativas.length}</span>
           ${p?.tipo ? `<span class="chip chip-tipo-${esc(p.tipo)}">${esc(p.tipo)}</span>` : ''}
           <span class="gp-ganho" title="Ganho total do projeto">${p?.ganho ? fmtGanho(p.ganho) : 'sem ganho'}</span>
+          ${etiquetaProj}
           ${periodoProjeto(p)}
           ${botaoLerGrupo(empresa, projeto, p)}
           ${projetoNoGrupos(empresa, projeto) ? `<button class="btn btn-ghost btn-sm gp-encerrar" type="button"
@@ -411,6 +453,7 @@ function botaoLerGrupo(empresa, projeto, p) {
       data-ler-jids="${esc(jids.join(','))}" ${st.lendo ? 'disabled aria-busy="true"' : ''}
       aria-label="Ler agora só o grupo de ${esc(empresa)} · ${esc(projeto)}" title="Lê só este grupo (o Atualizar lê todos)">
       ${st.lendo ? '<span class="spinner" aria-hidden="true"></span> Lendo…' : `${ICONE.msgs} Ler este grupo`}</button>
+    <button class="btn btn-ghost btn-sm gp-hist" type="button" data-hist-grupo="${esc(jids[0] ?? '')}" title="Ver histórico de leituras deste grupo">Histórico</button>
     <span class="gp-ler-res ${st.cls ?? ''}" aria-live="polite">${esc(st.texto ?? '')}</span>`;
 }
 
@@ -516,6 +559,10 @@ function renderTarefa(t) {
     return `<option value="${esc(v)}" ${v === atual ? 'selected' : ''}>${esc(empresa)} · ${esc(projeto)}</option>`;
   }).join('')}</optgroup>`).join('');
 
+  const rotulo = rotuloPrazo(t.prazo);
+  const clsPrazo = classePrazo(t.prazo);
+  const rotuloCriada = t.criadaEm ? fmtData(t.criadaEm) : null;
+
   return `
   <article class="tarefa-compacta ${classeUrgencia(t.urgencia ?? 0)} ${aberta ? 'aberta' : ''}" data-id="${id}" aria-label="${esc(t.titulo)}">
     <div class="t-linha" data-drag-id="${id}" draggable="true">
@@ -525,14 +572,17 @@ function renderTarefa(t) {
       <button class="t-titulo" type="button" data-expand-id="${id}" aria-expanded="${aberta}" aria-controls="detalhes-${id}">${esc(t.titulo || '(sem título)')}</button>
       <span class="t-info">
         <span class="t-meta">${esc(t.empresa || '–')} · ${esc(t.projeto || '–')}</span>
+        ${rotuloCriada ? `<span class="t-criada" title="Criada em ${esc(rotuloCriada)}">${esc(rotuloCriada)}</span>` : ''}
         <span class="chip chip-estado-${esc(t.estado)}">${esc(labelEstado(t.estado))}</span>
-        <span class="t-prazo ${venceLogo(limite) ? 'vence' : ''}" title="Prazo da tarefa">${limite ? esc(fmtData(limite) ?? t.prazo) : 'sem prazo'}</span>
+        ${rotulo ? `<span class="t-prazo ${clsPrazo}" title="Prazo">${esc(rotulo)}</span>` : ''}
       </span>
       <button class="btn-expandir" type="button" data-expand-id="${id}" aria-label="${aberta ? 'Recolher' : 'Expandir'} detalhes" aria-expanded="${aberta}">${ICONE.chevron}</button>
     </div>
 
     <div class="t-detalhes" id="detalhes-${id}" ${aberta ? '' : 'hidden'}>
       ${t.descricao ? `<p class="tarefa-descricao">${esc(t.descricao)}</p>` : ''}
+      ${renderNota(t.nota)}
+      ${renderLinks(t.links)}
       ${t.faltando?.length ? `<div class="tarefa-faltando"><strong>Falta:</strong> ${esc(t.faltando.join(' · '))}</div>` : ''}
       ${t.destino ? `<div class="tarefa-destino">Distribuída para ${esc(t.destino.nome ?? t.destino.alvo)} (${esc(t.destino.tipo)})</div>` : ''}
 
@@ -542,6 +592,9 @@ function renderTarefa(t) {
         </label>
         <label class="campo">Estado
           <select data-campo="estado" data-id="${id}">${opcoes}</select>
+        </label>
+        <label class="campo">Prazo
+          <input type="date" data-campo="prazo" data-id="${id}" value="${limite ?? ''}">
         </label>
         <label class="campo campo-mover">Mover para…
           <select data-mover-id="${id}">${opcoesMover}</select>
@@ -585,6 +638,12 @@ $main.addEventListener('click', async e => {
   const ler = e.target.closest('[data-ler-jids]');
   if (ler) {
     await lerProjeto(ler.dataset.lerEmpresa, ler.dataset.lerProjeto, ler.dataset.lerJids.split(',').filter(Boolean));
+    return;
+  }
+
+  const hist = e.target.closest('[data-hist-grupo]');
+  if (hist) {
+    await abrirHistorico(hist.dataset.histGrupo);
     return;
   }
 
@@ -654,16 +713,29 @@ $main.addEventListener('change', async e => {
   const { campo, id } = campoEl.dataset;
   const valor = campoEl.value.trim();
   let payload;
-  if (campo === 'titulo') { if (!valor) return; payload = { titulo: valor }; }
-  else payload = { [campo]: valor };
+  if (campo === 'titulo') {
+    if (!valor) return;
+    payload = { titulo: valor };
+  } else if (campo === 'prazo') {
+    payload = { prazo: valor || null };
+  } else {
+    payload = { [campo]: valor };
+  }
 
   campoEl.disabled = true;
   try {
     await patchTarefa(id, payload);
-    toast(campo === 'estado' ? `Estado: ${labelEstado(valor)}` : 'Salvo');
+    const tLocal = _tarefas.find(x => x.id === id);
+    if (tLocal) {
+      if (campo === 'prazo') tLocal.prazo = payload.prazo;
+      else if (campo === 'titulo') tLocal.titulo = payload.titulo;
+      else if (campo === 'estado') tLocal.estado = payload.estado;
+    }
+    toast(campo === 'estado' ? `Estado: ${labelEstado(valor)}` : (campo === 'prazo' ? 'Prazo atualizado' : 'Salvo'));
     campoEl.disabled = false;
     campoEl.blur();
     await fetchTarefas();
+    render();
   } catch (err) {
     campoEl.disabled = false;
     toast('Erro ao salvar: ' + err.message, 'erro');
@@ -1311,8 +1383,132 @@ $buscaRes.addEventListener('click', e => {
 
 document.getElementById('dlg-grupo-fechar').addEventListener('click', () => $dlgGrupo.close());
 $dlgGrupo.addEventListener('close', () => { _pjAlvo = null; });
-for (const $d of [$dlgGrupo, $dlgConfirmar]) {
+for (const $d of [$dlgGrupo, $dlgConfirmar, $dlgHistorico].filter(Boolean)) {
   $d.addEventListener('click', e => { if (e.target === $d) $d.close(); });
+}
+
+// ── Histórico de leituras (GB-50) ─────────────────────────
+async function abrirHistorico(filtroGrupo = null) {
+  if (!$dlgHistorico) return;
+  $dlgHistorico.showModal();
+  $dlgHistCorpo.innerHTML = '<div class="estado-vazio estado-vazio-inline"><span class="spinner" aria-hidden="true"></span> Carregando histórico…</div>';
+  try {
+    const r = await fetch(`${API}/leituras/log?limite=50`);
+    if (!r.ok) {
+      $dlgHistCorpo.innerHTML = '<div class="estado-vazio">Sem histórico</div>';
+      return;
+    }
+    const dados = await r.json().catch(() => null);
+    const lista = Array.isArray(dados) ? dados : (Array.isArray(dados?.leituras) ? dados.leituras : (Array.isArray(dados?.log) ? dados.log : []));
+    if (!lista || !lista.length) {
+      $dlgHistCorpo.innerHTML = '<div class="estado-vazio">Sem histórico</div>';
+      return;
+    }
+    renderHistorico(lista, filtroGrupo);
+  } catch (err) {
+    $dlgHistCorpo.innerHTML = '<div class="estado-vazio">Sem histórico</div>';
+  }
+}
+
+function renderHistorico(lista, filtroGrupo) {
+  let itens = lista;
+  if (filtroGrupo) {
+    const filtradas = lista.filter(l => l.grupo === filtroGrupo || String(filtroGrupo).includes(String(l.grupo)));
+    if (filtradas.length) itens = filtradas;
+  }
+
+  const blocosValidos = itens.filter(l => Array.isArray(l.mensagens) && l.mensagens.length > 0);
+  if (!blocosValidos.length) {
+    $dlgHistCorpo.innerHTML = '<div class="estado-vazio">Sem histórico</div>';
+    return;
+  }
+
+  const html = `<div class="hist-lista">
+    ${blocosValidos.map(l => {
+      const msgs = l.mensagens;
+      return `<div class="hist-bloco">
+        <div class="hist-bloco-topo">
+          <span class="hist-data">${esc(fmtDataHoraCurta(l.em) || '–')}</span>
+          <span class="hist-grupo">${esc(l.grupo || '–')}</span>
+          <span class="hist-qtd">${msgs.length} mensage${msgs.length === 1 ? 'm' : 'ns'}</span>
+        </div>
+        <div class="hist-msgs">
+          ${msgs.map(m => {
+            const dest = formatarDestinoLog(m.destino, m.motivo);
+            const isDesc = !m.destino || m.destino === 'descartada' || m.destino?.tipo === 'descartada';
+            const temTarefa = Boolean(m.tarefaId);
+            return `<div class="hist-item ${temTarefa ? 'clicavel' : ''}" ${temTarefa ? `data-ir-tarefa="${esc(m.tarefaId)}" role="button" tabindex="0" title="Ir para a tarefa"` : ''}>
+              <div class="hist-item-corpo">
+                <span class="hist-resumo">${esc(m.resumo || '(sem resumo)')}</span>
+                <span class="hist-destino ${isDesc ? 'descartada' : 'atribuida'}">${esc(dest)}</span>
+              </div>
+              ${temTarefa ? `<span class="hist-link-seta" aria-hidden="true">→</span>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  $dlgHistCorpo.innerHTML = html;
+}
+
+function irParaTarefa(tarefaId) {
+  if ($dlgHistorico?.open) $dlgHistorico.close();
+  if (_aba !== 'tarefas') {
+    mostrarAba('tarefas', false);
+  }
+  const t = _tarefas.find(x => x.id === tarefaId);
+  if (t) {
+    if (_filtroEmpresa && _filtroEmpresa !== t.empresa) {
+      _filtroEmpresa = '';
+      if ($sel_e) $sel_e.value = '';
+    }
+    if (_filtroEstado && _filtroEstado !== t.estado) {
+      _filtroEstado = '';
+      if ($sel_st) $sel_st.value = '';
+    }
+    if (_filtroProjeto && _filtroProjeto !== t.projeto) {
+      _filtroProjeto = '';
+      if ($sel_p) $sel_p.value = '';
+    }
+    alternarEmpresa(t.empresa, true);
+    _expandidas.add(t.id);
+    render();
+    setTimeout(() => {
+      const el = document.querySelector(`[data-id="${CSS.escape(tarefaId)}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('destaque-tarefa');
+        setTimeout(() => el.classList.remove('destaque-tarefa'), 2500);
+      }
+    }, 50);
+  } else {
+    toast('Tarefa não encontrada', 'aviso');
+  }
+}
+
+if ($btnHistorico) {
+  $btnHistorico.addEventListener('click', () => abrirHistorico());
+}
+const $histFechar = document.getElementById('dlg-hist-fechar');
+if ($histFechar) {
+  $histFechar.addEventListener('click', () => $dlgHistorico.close());
+}
+if ($dlgHistCorpo) {
+  $dlgHistCorpo.addEventListener('click', e => {
+    const item = e.target.closest('[data-ir-tarefa]');
+    if (item) irParaTarefa(item.dataset.irTarefa);
+  });
+  $dlgHistCorpo.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const item = e.target.closest('[data-ir-tarefa]');
+      if (item) {
+        e.preventDefault();
+        irParaTarefa(item.dataset.irTarefa);
+      }
+    }
+  });
 }
 
 document.getElementById('pj-abrir').addEventListener('click', async e => {
