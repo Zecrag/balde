@@ -37,6 +37,7 @@
 <section class="leitura-barra" aria-label="Leitura do WhatsApp">
   <span class="tag-leitura" id="tag-leitura" title="Quando o Balde leu os grupos pela última vez e quanto custou">Última leitura –</span>
   <button class="btn btn-ghost btn-sm" id="btn-historico" type="button" aria-haspopup="dialog">Histórico</button>
+  <button class="btn btn-ghost btn-sm" id="btn-bloco" type="button" aria-haspopup="dialog">Modo bloco</button>
   <button class="btn btn-primary btn-sm" id="btn-ler" type="button" aria-describedby="ler-resultado">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     Atualizar
@@ -227,6 +228,53 @@
   </div>
   <p class="mg-ajuda" id="dlg-hist-subtitulo">Últimas mensagens processadas pelo Balde.</p>
   <div id="dlg-hist-corpo" aria-live="polite"></div>
+</dialog>
+
+<!-- ── Modo bloco (GB-53) ─────────────────────────────────── -->
+<dialog class="modal-grupos modal-bloco" id="dlg-bloco" aria-labelledby="dlg-bloco-titulo">
+  <div class="mg-cabecalho">
+    <h2 class="modal-titulo" id="dlg-bloco-titulo">Modo bloco</h2>
+    <button class="btn btn-ghost btn-icone" id="dlg-bloco-fechar" type="button" aria-label="Fechar modo bloco">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="bloco-explicacao">
+    <p>O bloco acumula mensagens no grupo de despejo e só lê quando concluir.</p>
+    <p>Se o cliente não existir, as tarefas vão para o Balde.</p>
+  </div>
+  <form class="bloco-form" id="form-bloco">
+    <div class="bloco-switch-linha">
+      <label class="bloco-toggle" for="bloco-ativo">
+        <input type="checkbox" id="bloco-ativo" name="ativo" checked>
+        <span class="bloco-toggle-slider" aria-hidden="true"></span>
+        <span class="bloco-toggle-rotulo">Modo bloco ativado</span>
+      </label>
+    </div>
+    <div class="bloco-campos-grid">
+      <div class="bloco-campo">
+        <label for="bloco-abrir">Palavra para abrir</label>
+        <input class="inline-input" id="bloco-abrir" name="abrir" type="text" maxlength="20" required autocomplete="off" placeholder="Cliente">
+      </div>
+      <div class="bloco-campo">
+        <label for="bloco-fechar">Palavra para fechar</label>
+        <input class="inline-input" id="bloco-fechar" name="fechar" type="text" maxlength="20" required autocomplete="off" placeholder="Concluir">
+      </div>
+    </div>
+    <div class="bloco-exemplo-caixa">
+      <span class="bloco-exemplo-rotulo">Exemplo no Balde:</span>
+      <code class="bloco-exemplo-texto" id="bloco-exemplo">Escreva no Balde: Cliente Acme … (mande tudo) … Concluir Acme</code>
+    </div>
+    <div class="bloco-acoes">
+      <button class="btn btn-primary btn-sm" id="btn-bloco-salvar" type="submit">Salvar</button>
+      <span class="bloco-status" id="bloco-status" aria-live="polite"></span>
+    </div>
+  </form>
+  <div class="bloco-pendentes-secao">
+    <h3 class="bloco-pendentes-titulo">Blocos pendentes</h3>
+    <div class="bloco-pendentes-lista" id="bloco-pendentes-lista" aria-live="polite">
+      <p class="bloco-vazio">Nenhum bloco pendente no momento.</p>
+    </div>
+  </div>
 </dialog>
 
 <!-- ── Toast ─────────────────────────────────────────────── -->

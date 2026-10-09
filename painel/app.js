@@ -77,6 +77,18 @@ const $dlgConfirmar = document.getElementById('dlg-confirmar');
 const $dlgHistorico = document.getElementById('dlg-historico');
 const $dlgHistCorpo = document.getElementById('dlg-hist-corpo');
 const $btnHistorico = document.getElementById('btn-historico');
+const $btnBloco = document.getElementById('btn-bloco');
+const $dlgBloco = document.getElementById('dlg-bloco');
+const $dlgBlocoFechar = document.getElementById('dlg-bloco-fechar');
+const $formBloco = document.getElementById('form-bloco');
+const $blocoAtivo = document.getElementById('bloco-ativo');
+const $blocoAbrir = document.getElementById('bloco-abrir');
+const $blocoFechar = document.getElementById('bloco-fechar');
+const $blocoExemplo = document.getElementById('bloco-exemplo');
+const $blocoStatus = document.getElementById('bloco-status');
+const $btnBlocoSalvar = document.getElementById('btn-bloco-salvar');
+const $blocoPendentesLista = document.getElementById('bloco-pendentes-lista');
+let _blocosPendentes = [];
 const $nav     = document.getElementById('nav-empresas');
 const $recolher = document.getElementById('btn-recolher');
 
@@ -190,12 +202,21 @@ function setSyncStatus(status, label) {
 async function fetchTarefas() {
   setSyncStatus('syncing', 'Atualizando…');
   try {
-    const [r, rg] = await Promise.all([fetch(`${API}/tarefas`), fetch(`${API}/config/grupos`).catch(() => null)]);
+    const [r, rg, rb] = await Promise.all([
+      fetch(`${API}/tarefas`),
+      fetch(`${API}/config/grupos`).catch(() => null),
+      fetch(`${API}/blocos/pendentes`).catch(() => null),
+    ]);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const dados = await r.json();
     if (rg?.ok) {
       const { linhas = [] } = await rg.json();
       _paresGrupos = linhas.filter(l => l.empresa && l.status !== 'arquivado').map(l => ({ empresa: l.empresa, projeto: l.projeto }));
+    }
+    if (rb?.ok) {
+      _blocosPendentes = await rb.json();
+    } else {
+      _blocosPendentes = [];
     }
     _tarefas = (dados.tarefas ?? []).filter(t => !t.arquivado);
     _tarefasArquivadas = (dados.tarefas ?? []).filter(t => t.arquivado);
@@ -394,12 +415,18 @@ function render() {
       etiquetaCliente,
     ].filter(Boolean).join('');
 
+    const ehBaldeEmpresa = String(empresa ?? '').trim().toLowerCase() === 'balde';
+    const tagsBlocoEmpresa = ehBaldeEmpresa && _blocosPendentes.length
+      ? _blocosPendentes.map(b => `<span class="tag-bloco-aberto" title="Bloco aberto desde ${b.desde ? esc(b.desde) : 'início'} (${b.mensagens} msgs)">bloco aberto: ${esc(b.cliente)}</span>`).join('')
+      : '';
+
     html += `<section class="grupo-empresa ${aberta ? 'aberta' : 'recolhida'}" id="ge-${navItens.length - 1}" aria-label="Empresa ${esc(empresa)}">
       <h2 class="grupo-empresa-titulo">
         <button class="ge-toggle" type="button" data-toggle-empresa="${esc(empresa)}" data-drop-empresa="${esc(empresa)}"
                 aria-expanded="${aberta}" aria-controls="${idCorpo}">
           <span class="ge-seta">${ICONE.chevronDir}</span>
           <span class="ge-nome">${esc(empresa)}</span>
+          ${tagsBlocoEmpresa}
           ${contadoresEmpresa(conta)}
           ${htmlValores ? `<span class="ge-valores">${htmlValores}</span>` : ''}
         </button>
@@ -413,9 +440,15 @@ function render() {
       const prazoProj = mapaPrazoProj.get(projeto);
       const etiquetaProj = renderEtiquetaPrazo(prazoProj);
 
+      const ehBaldeProjeto = ehBaldeEmpresa || String(projeto ?? '').trim().toLowerCase() === 'balde';
+      const tagsBlocoProjeto = ehBaldeProjeto && _blocosPendentes.length
+        ? _blocosPendentes.map(b => `<span class="tag-bloco-aberto" title="Bloco aberto: ${esc(b.cliente)} (${b.mensagens} msgs)">bloco aberto: ${esc(b.cliente)}</span>`).join('')
+        : '';
+
       html += `<div class="grupo-projeto" aria-label="Projeto ${esc(projeto)}">
         <h3 class="grupo-projeto-titulo" data-drop-empresa="${esc(empresa)}" data-drop-projeto="${esc(projeto)}">
           <span class="gp-nome">${esc(projeto)}</span>
+          ${tagsBlocoProjeto}
           <span class="gp-conta" title="Tarefas abertas">${ativas.length}</span>
           ${p?.tipo ? `<span class="chip chip-tipo-${esc(p.tipo)}">${esc(p.tipo)}</span>` : ''}
           <span class="gp-ganho" title="Ganho total do projeto">${p?.ganho ? fmtGanho(p.ganho) : 'sem ganho'}</span>
@@ -1507,6 +1540,115 @@ if ($dlgHistCorpo) {
         e.preventDefault();
         irParaTarefa(item.dataset.irTarefa);
       }
+    }
+  });
+}
+
+// ── Modo bloco (GB-53) ────────────────────────────────────
+function atualizarExemploVivo() {
+  if (!$blocoExemplo) return;
+  const abrir = ($blocoAbrir?.value.trim() || 'Cliente');
+  const fechar = ($blocoFechar?.value.trim() || 'Concluir');
+  $blocoExemplo.textContent = `Escreva no Balde: ${abrir} Acme … (mande tudo) … ${fechar} Acme`;
+}
+
+function renderBlocosPendentes(lista) {
+  if (!$blocoPendentesLista) return;
+  if (!lista || !lista.length) {
+    $blocoPendentesLista.innerHTML = '<p class="bloco-vazio">Nenhum bloco pendente no momento.</p>';
+    return;
+  }
+  $blocoPendentesLista.innerHTML = lista.map(b => `
+    <div class="bloco-pendente-card">
+      <div class="bloco-pendente-info">
+        <span class="bloco-pendente-cliente">${esc(b.cliente)}</span>
+        <span class="bloco-pendente-meta">Grupo: ${esc(b.grupo)} · ${b.mensagens} ${b.mensagens === 1 ? 'mensagem' : 'mensagens'}${b.desde ? ` · desde ${new Date(b.desde).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}</span>
+      </div>
+      <span class="tag-bloco-aberto">bloco aberto</span>
+    </div>
+  `).join('');
+}
+
+async function abrirModalBloco() {
+  if (!$dlgBloco) return;
+  if ($blocoStatus) {
+    $blocoStatus.textContent = '';
+    $blocoStatus.className = 'bloco-status';
+  }
+  $dlgBloco.showModal();
+  try {
+    const [rc, rb] = await Promise.all([
+      fetch(`${API}/config/bloco`),
+      fetch(`${API}/blocos/pendentes`).catch(() => null),
+    ]);
+    if (rc.ok) {
+      const cfg = await rc.json();
+      if ($blocoAtivo) $blocoAtivo.checked = cfg.ativo !== false;
+      if ($blocoAbrir) $blocoAbrir.value = cfg.abrir || 'Cliente';
+      if ($blocoFechar) $blocoFechar.value = cfg.fechar || 'Concluir';
+      atualizarExemploVivo();
+    }
+    if (rb?.ok) {
+      const blocos = await rb.json();
+      _blocosPendentes = blocos;
+      renderBlocosPendentes(blocos);
+    }
+  } catch (err) {
+    console.error('[bloco] Erro ao carregar:', err);
+  }
+}
+
+if ($btnBloco) {
+  $btnBloco.addEventListener('click', () => abrirModalBloco());
+}
+if ($dlgBlocoFechar) {
+  $dlgBlocoFechar.addEventListener('click', () => $dlgBloco.close());
+}
+if ($dlgBloco) {
+  $dlgBloco.addEventListener('click', e => { if (e.target === $dlgBloco) $dlgBloco.close(); });
+}
+if ($blocoAbrir) {
+  $blocoAbrir.addEventListener('input', atualizarExemploVivo);
+}
+if ($blocoFechar) {
+  $blocoFechar.addEventListener('input', atualizarExemploVivo);
+}
+if ($formBloco) {
+  $formBloco.addEventListener('submit', async e => {
+    e.preventDefault();
+    if ($btnBlocoSalvar) $btnBlocoSalvar.disabled = true;
+    if ($blocoStatus) {
+      $blocoStatus.textContent = 'Salvando…';
+      $blocoStatus.className = 'bloco-status';
+    }
+    try {
+      const corpo = {
+        ativo: Boolean($blocoAtivo?.checked),
+        abrir: $blocoAbrir?.value.trim(),
+        fechar: $blocoFechar?.value.trim(),
+      };
+      const res = await fetch(`${API}/config/bloco`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(corpo),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.erro || `HTTP ${res.status}`);
+      }
+      if ($blocoStatus) {
+        $blocoStatus.textContent = 'Configurações salvas!';
+        $blocoStatus.className = 'bloco-status sucesso';
+      }
+      toast('Configuração do modo bloco salva');
+      await fetchTarefas();
+    } catch (err) {
+      if ($blocoStatus) {
+        $blocoStatus.textContent = err.message || 'Erro ao salvar';
+        $blocoStatus.className = 'bloco-status erro';
+      }
+    } finally {
+      if ($btnBlocoSalvar) $btnBlocoSalvar.disabled = false;
     }
   });
 }
