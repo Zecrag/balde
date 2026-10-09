@@ -1,0 +1,21 @@
+{
+  "event": "messages.upsert",
+  "instance": "cliente-alfa",
+  "data": {
+    "key": {
+      "remoteJid": "120363025348923456@g.us",
+      "fromMe": false,
+      "id": "EVO_MSG_TXT_101",
+      "participant": "5511999990001@s.whatsapp.net"
+    },
+    "pushName": "Roberto Silva",
+    "messageType": "conversation",
+    "message": {
+      "conversation": "Precisamos ajustar o prazo da entrega da sprint para sexta-feira às 18h."
+    },
+    "messageTimestamp": 1728312000,
+    "groupInfo": {
+      "subject": "Projeto Alfa - Empresa X"
+    }
+  }
+}

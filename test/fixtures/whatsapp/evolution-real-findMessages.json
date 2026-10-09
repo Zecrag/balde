@@ -1,0 +1,27 @@
+{
+  "messages": {
+    "total": 1,
+    "pages": 1,
+    "currentPage": 1,
+    "records": [
+      {
+        "id": "sintetico0000000000000001",
+        "key": {
+          "id": "3EB0000000000000000001",
+          "fromMe": true,
+          "remoteJid": "120363000000000000@g.us"
+        },
+        "pushName": "Fulano",
+        "messageType": "conversation",
+        "message": {
+          "conversation": "mensagem anonimizada de grupo real"
+        },
+        "messageTimestamp": 1700000000,
+        "instanceId": "00000000-0000-0000-0000-000000000000",
+        "source": "web",
+        "contextInfo": null,
+        "MessageUpdate": []
+      }
+    ]
+  }
+}

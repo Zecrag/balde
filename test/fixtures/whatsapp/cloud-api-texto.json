@@ -1,0 +1,39 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "10987654321",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "5511999998888",
+              "phone_number_id": "100600000000001"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Maria Oliveira"
+                },
+                "wa_id": "5511988881111"
+              }
+            ],
+            "messages": [
+              {
+                "from": "5511988881111",
+                "id": "wamid.HBgLNTUxMTk5ODg4ODgxMTFRM0I2RDQzMjE=",
+                "timestamp": "1728312180",
+                "type": "text",
+                "text": {
+                  "body": "Favor emitir a nota fiscal do mês para a Empresa Beta urgente."
+                }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

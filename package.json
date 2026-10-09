@@ -1,0 +1,17 @@
+{
+  "name": "balde",
+  "version": "0.1.0",
+  "description": "Balde WhatsApp — micro-tarefas a partir dos grupos",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs",
+    "start:evolution": "node server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "simular": "node bin/simular.mjs",
+    "servico": "node bin/servico.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

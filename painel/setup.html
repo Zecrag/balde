@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Configuração Inicial - Balde WhatsApp</title>
+  <link rel="stylesheet" href="/setup/setup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Configuração</h1>
+      <p id="step-indicator">Passo 1 de 4</p>
+    </header>
+
+    <main id="app">
+      <!-- Passo 1: OpenAI -->
+      <section id="step-1" class="step active">
+        <h2>Chave da OpenAI</h2>
+        <p>O Balde usa a OpenAI para ler as mensagens e extrair tarefas. Você precisa de uma chave de API.</p>
+        <p class="help-text">Pegue sua chave em <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>.</p>
+        
+        <div class="form-group">
+          <label for="openai-key">Chave da API (sk-...)</label>
+          <input type="password" id="openai-key" placeholder="sk-..." autocomplete="off">
+        </div>
+        <button id="btn-openai" class="btn primary">Validar e Continuar</button>
+        <p id="error-openai" class="error hidden"></p>
+      </section>
+
+      <!-- Passo 2: WhatsApp Connection Type -->
+      <section id="step-2" class="step hidden">
+        <h2>Conectar WhatsApp</h2>
+        <p>Como você deseja conectar o seu número?</p>
+        
+        <div class="connection-options">
+          <button id="btn-opt-convite" class="btn secondary">Tenho um código de convite <span class="tag">recomendado</span></button>
+          <button id="btn-opt-baileys" class="btn secondary outline">QR direto neste Mac (Baileys)</button>
+          <button id="btn-opt-evolution" class="btn secondary outline">Tenho Evolution própria</button>
+        </div>
+
+        <div id="convite-form" class="hidden form-group-container">
+          <div class="form-group">
+            <label for="convite-codigo">Código de convite</label>
+            <textarea id="convite-codigo" rows="3" placeholder="Cole aqui o código que você recebeu" autocomplete="off" spellcheck="false"></textarea>
+          </div>
+          <p class="help-text">Quem te convidou mandou esse código pelo WhatsApp ou e-mail. Ele só dá acesso ao seu próprio WhatsApp.</p>
+          <button id="btn-convite" class="btn primary">Usar convite</button>
+          <p id="error-convite" class="error hidden"></p>
+        </div>
+
+        <div id="evolution-form" class="hidden form-group-container">
+          <div class="form-group">
+            <label for="evo-url">URL da Evolution</label>
+            <input type="url" id="evo-url" placeholder="https://sua-evolution.com">
+          </div>
+          <div class="form-group">
+            <label for="evo-key">Global API Key</label>
+            <input type="password" id="evo-key" placeholder="Sua chave...">
+          </div>
+          <div class="form-group">
+            <label for="evo-inst">Nome da Instância</label>
+            <input type="text" id="evo-inst" placeholder="ex: balde">
+          </div>
+          <button id="btn-evolution" class="btn primary">Testar e Salvar</button>
+          <p id="error-evolution" class="error hidden"></p>
+        </div>
+
+        <div id="qr-container" class="hidden qr-container">
+          <p id="qr-status">Iniciando...</p>
+          <img id="qr-image" class="hidden" alt="QR Code WhatsApp">
+          <p id="qr-ajuda" class="help-text hidden">No celular: WhatsApp &rsaquo; Configurações &rsaquo; Aparelhos conectados &rsaquo; Conectar aparelho, e aponte para o QR. Ele se renova sozinho.</p>
+          <p id="error-qr" class="error hidden"></p>
+        </div>
+      </section>
+
+      <!-- Passo 3: Grupos -->
+      <section id="step-3" class="step hidden">
+        <h2>Escolher Grupos</h2>
+        <p>Selecione de quais grupos o Balde deve ler tarefas. Você poderá adicionar mais depois.</p>
+        
+        <div id="grupos-loading">Carregando grupos do seu WhatsApp...</div>
+        <div id="grupos-list" class="grupos-list hidden"></div>
+        <p id="error-grupos" class="error hidden"></p>
+        
+        <button id="btn-grupos" class="btn primary hidden">Salvar Selecionados</button>
+      </section>
+
+      <!-- Passo 4: Pronto -->
+      <section id="step-4" class="step hidden">
+        <h2>Tudo Pronto!</h2>
+        <p>O Balde está configurado e pronto para uso.</p>
+        <a href="/painel" class="btn primary">Ir para o Painel</a>
+      </section>
+    </main>
+  </div>
+  <script src="/setup/setup.js"></script>
+</body>
+</html>

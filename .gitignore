@@ -1,0 +1,10 @@
+node_modules/
+.env
+dados/
+GRUPOS.md
+DESTINOS.md
+config/clientes.json
+link-cache/
+logs/
+conectores/baileys/auth_info_baileys/
+.DS_Store

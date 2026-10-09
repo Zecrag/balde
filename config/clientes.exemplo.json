@@ -1,0 +1,63 @@
+[
+  {
+    "empresa": "Alfa Tech",
+    "projeto": "Website Institucional",
+    "grupos": [
+      "Alfa Tech - Site",
+      "Site Alfa",
+      "120363011111111111@g.us"
+    ],
+    "receitaMensal": 6000,
+    "tipoTicket": "projeto",
+    "pesoUrgencia": 1.0
+  },
+  {
+    "empresa": "Alfa Tech",
+    "projeto": "Aplicativo Mobile",
+    "grupos": [
+      "Alfa Tech - App",
+      "App Alfa",
+      "120363022222222222@g.us"
+    ],
+    "receitaMensal": 9000,
+    "tipoTicket": "projeto",
+    "pesoUrgencia": 1.2
+  },
+  {
+    "empresa": "Padaria Modelo",
+    "projeto": "Hospedagem & Suporte",
+    "grupos": [
+      "Padaria Modelo Suporte",
+      "hospedagem-padaria",
+      "120363033333333333@g.us"
+    ],
+    "receitaMensal": 180,
+    "tipoTicket": "hospedagem",
+    "pesoUrgencia": 0.4
+  },
+  {
+    "empresa": "Grupo Varejo Brasil",
+    "projeto": "Plataforma Omnichannel",
+    "grupos": [
+      "Varejo Brasil - TI",
+      "Varejo Brasil Diretoria",
+      "120363044444444444@g.us"
+    ],
+    "receitaMensal": 45000,
+    "tipoTicket": "recorrente",
+    "pesoUrgencia": 2.0
+  },
+  {
+    "empresa": "Pessoal Alice",
+    "projeto": "Notas & Demandas Pessoais",
+    "grupos": [
+      "Alice Pessoal",
+      "Encaminhamentos Pessoais",
+      "5511999999999@s.whatsapp.net",
+      "meu-pessoal"
+    ],
+    "receitaMensal": 0,
+    "tipoTicket": "recorrente",
+    "pesoUrgencia": 1.0
+  }
+]

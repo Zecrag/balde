@@ -1,0 +1,21 @@
+{
+  "name": "@balde/conector-baileys",
+  "version": "1.0.0",
+  "description": "Conector WhatsApp direto via QR (Baileys) — modo leitura",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "instalar": "npm install"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "qrcode": "1.5.4"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "notes": [
+    "Instale SOMENTE aqui: cd balde/conectores/baileys && npm install",
+    "O balde principal (balde/package.json) não tem dependências de propósito."
+  ]
+}

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Balde · Painel de tarefas capturadas do WhatsApp" />
+  <title>Balde · Painel</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ── Header ────────────────────────────────────────────── -->
+<header class="header" role="banner">
+  <div class="header-logo" aria-label="Balde Painel">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M3 3l2 18h14l2-18H3z"/>
+      <path d="M8 3V2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v1"/>
+    </svg>
+    <span><span class="bucket">Balde</span> · Painel</span>
+  </div>
+
+  <div class="header-meta">
+    <span id="sync-info" aria-live="polite">–</span>
+    <span class="sync-dot" id="sync-dot" title="Status de sincronização"></span>
+  </div>
+</header>
+
+<!-- ── Abas ──────────────────────────────────────────────── -->
+<nav class="abas" role="tablist" aria-label="Seções do painel">
+  <button class="aba" id="aba-tarefas" role="tab" type="button" aria-controls="view-tarefas" aria-selected="true">Tarefas</button>
+  <button class="aba" id="aba-projetos" role="tab" type="button" aria-controls="projetos" aria-selected="false" tabindex="-1">Projetos</button>
+  <button class="aba" id="aba-custos" role="tab" type="button" aria-controls="custos" aria-selected="false" tabindex="-1">Custos</button>
+</nav>
+
+<div id="view-tarefas" role="tabpanel" aria-labelledby="aba-tarefas">
+<!-- ── Leitura do WhatsApp (GB-45) ───────────────────────── -->
+<section class="leitura-barra" aria-label="Leitura do WhatsApp">
+  <span class="tag-leitura" id="tag-leitura" title="Quando o Balde leu os grupos pela última vez e quanto custou">Última leitura –</span>
+  <button class="btn btn-primary btn-sm" id="btn-ler" type="button" aria-describedby="ler-resultado">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Atualizar
+  </button>
+  <span class="ler-resultado" id="ler-resultado" aria-live="polite"></span>
+</section>
+
+<!-- ── Filtros ───────────────────────────────────────────── -->
+<section class="filtros" role="search" aria-label="Filtros de tarefas">
+  <label for="filtro-empresa" class="visually-hidden">Empresa</label>
+  <select id="filtro-empresa" title="Filtrar por empresa">
+    <option value="">Todas empresas</option>
+  </select>
+
+  <label for="filtro-estado" class="visually-hidden">Estado</label>
+  <select id="filtro-estado" title="Filtrar por estado">
+    <option value="">Todos estados</option>
+    <option value="pronta">Pra fazer</option>
+    <option value="aguardando_info">Falta info</option>
+    <option value="precisa_decisao">Decidir</option>
+    <option value="em_execucao">Fazendo</option>
+    <option value="feita">Feita</option>
+    <option value="descartada">Descartada</option>
+  </select>
+
+  <label for="filtro-projeto" class="visually-hidden">Projeto</label>
+  <select id="filtro-projeto" title="Filtrar por projeto">
+    <option value="">Todos projetos</option>
+  </select>
+
+  <button class="btn btn-ghost" id="btn-atualizar" aria-label="Recarregar a lista de tarefas">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M23 4v6h-6"/>
+      <path d="M1 20v-6h6"/>
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </svg>
+    Recarregar
+  </button>
+
+  <button class="btn btn-ghost" id="btn-recolher" type="button" aria-controls="main">Expandir tudo</button>
+</section>
+
+<div class="tarefas-layout">
+  <!-- ── Navegação rápida: barra lateral (desktop) / chips (celular) ── -->
+  <nav class="nav-empresas" id="nav-empresas" aria-label="Ir para cliente"></nav>
+
+  <!-- ── Conteúdo principal ─────────────────────────────────── -->
+  <main id="main" role="main" aria-label="Lista de tarefas">
+    <!-- preenchido por JS -->
+  </main>
+</div>
+</div>
+
+<!-- ── Aba Projetos (GRUPOS.md editável) ─────────────────── -->
+<section class="projetos" id="projetos" role="tabpanel" aria-labelledby="aba-projetos" hidden>
+  <div class="pj-topo">
+    <div class="pj-intro">
+      <h1 class="pj-titulo">Projetos</h1>
+      <p class="mg-ajuda">Cada linha é um projeto; o grupo do WhatsApp é opcional. Projeto sem grupo não é lido: recebe tarefas soltas do grupo de despejo. Ganho total, início e fim valem para todas as tarefas do projeto.</p>
+    </div>
+    <div class="pj-acoes">
+      <span class="pj-status" id="pj-status" aria-live="polite"></span>
+      <button class="btn btn-ghost" id="pj-descartar" type="button" hidden>Descartar</button>
+      <button class="btn btn-ghost" id="pj-adicionar" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Ligar grupo
+      </button>
+      <button class="btn btn-ghost" id="pj-novo" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Novo cliente/projeto
+      </button>
+      <button class="btn btn-primary" id="pj-salvar" type="button" disabled>Salvar</button>
+    </div>
+  </div>
+  <div id="pj-erros" aria-live="assertive"></div>
+  <div id="pj-corpo"></div>
+  <div class="mg-caminho pj-caminho">
+    <code id="pj-caminho">–</code>
+    <button class="btn btn-ghost" id="pj-abrir" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+      Abrir no editor
+    </button>
+  </div>
+  <p class="campo-dica">Também dá para editar o arquivo no TextEdit: o painel relê sozinho.</p>
+</section>
+
+<!-- ── Aba Custos (GB-45: uso da IA por leitura) ─────────── -->
+<section class="custos" id="custos" role="tabpanel" aria-labelledby="aba-custos" hidden>
+  <div class="pj-topo">
+    <div class="pj-intro">
+      <h1 class="pj-titulo">Custos</h1>
+      <p class="mg-ajuda">Quanto a IA custou para ler os grupos: por leitura, por dia e por empresa · projeto.</p>
+    </div>
+    <div class="periodos" role="group" aria-label="Período">
+      <button class="periodo" type="button" data-periodo="hoje" aria-pressed="true">Hoje</button>
+      <button class="periodo" type="button" data-periodo="7d" aria-pressed="false">7 dias</button>
+      <button class="periodo" type="button" data-periodo="mes" aria-pressed="false">Mês</button>
+    </div>
+  </div>
+  <div id="custos-corpo" aria-live="polite"></div>
+  <section class="custos-bloco config-ia" aria-labelledby="cfg-ia-h">
+    <h2 class="custos-h" id="cfg-ia-h">Configurações da IA</h2>
+    <form class="cfg-ia" id="cfg-ia" novalidate>
+      <div class="cfg-campo">
+        <label for="cfg-extracao">Modelo que lê as mensagens</label>
+        <select class="inline-input" id="cfg-extracao" aria-describedby="cfg-extracao-dica"></select>
+        <span class="campo-dica" id="cfg-extracao-dica"></span>
+      </div>
+      <div class="cfg-campo">
+        <label for="cfg-transcricao">Transcrição de áudio</label>
+        <select class="inline-input" id="cfg-transcricao" aria-describedby="cfg-transcricao-dica"></select>
+        <span class="campo-dica" id="cfg-transcricao-dica"></span>
+      </div>
+      <div class="cfg-campo">
+        <label for="cfg-teto">Teto diário (US$)</label>
+        <input class="inline-input cfg-teto" id="cfg-teto" inputmode="decimal" autocomplete="off" aria-describedby="cfg-teto-dica">
+        <span class="campo-dica" id="cfg-teto-dica"></span>
+      </div>
+      <div class="cfg-acoes">
+        <button class="btn btn-primary" id="cfg-salvar" type="submit" disabled>Salvar</button>
+        <span class="pj-status" id="cfg-status" aria-live="polite"></span>
+      </div>
+    </form>
+    <p class="campo-dica" id="cfg-tipica"></p>
+  </section>
+</section>
+
+<!-- ── Modal distribuir ──────────────────────────────────── -->
+<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-titulo" aria-hidden="true">
+  <div class="modal">
+    <h2 class="modal-titulo" id="modal-titulo">Distribuir tarefa</h2>
+
+    <p class="mg-ajuda" id="dist-tarefa"></p>
+    <fieldset class="destinos" id="dist-destinos" aria-describedby="dist-ajuda">
+      <legend class="visually-hidden">Destino</legend>
+    </fieldset>
+    <p class="campo-dica" id="dist-ajuda">Destinos autorizados em <code id="dist-arquivo">DESTINOS.md</code>.</p>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modal-cancelar">Cancelar</button>
+      <button class="btn btn-primary" id="modal-confirmar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M22 2L11 13"/>
+          <path d="M22 2 15 22 11 13 2 9l20-7z"/>
+        </svg>
+        Enviar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Escolher grupo (busca na Evolution) ────────────────── -->
+<dialog class="modal-grupos" id="dlg-grupo" aria-labelledby="dlg-grupo-titulo">
+  <div class="mg-cabecalho">
+    <h2 class="modal-titulo" id="dlg-grupo-titulo">Escolher grupo do WhatsApp</h2>
+    <button class="btn btn-ghost btn-icone" id="dlg-grupo-fechar" type="button" aria-label="Fechar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <p class="mg-ajuda" id="dlg-grupo-alvo"></p>
+  <form class="mg-busca" id="grupos-busca-form" role="search">
+    <label class="sr-only" for="grupos-busca">Buscar grupo no WhatsApp</label>
+    <input class="inline-input" id="grupos-busca" type="search" autocomplete="off"
+           placeholder="Nome do grupo (vírgula separa vários)">
+    <button class="btn btn-primary" type="submit">Buscar</button>
+  </form>
+  <div id="grupos-busca-resultado" aria-live="polite"></div>
+  <p class="campo-dica">Ou cole o link https://chat.whatsapp.com/… direto no campo Grupo da linha.</p>
+</dialog>
+
+<!-- ── Confirmar remoção ─────────────────────────────────── -->
+<dialog class="modal-grupos dlg-confirmar" id="dlg-confirmar" aria-labelledby="dlg-confirmar-titulo">
+  <h2 class="modal-titulo" id="dlg-confirmar-titulo">Remover projeto?</h2>
+  <p class="mg-ajuda" id="dlg-confirmar-texto"></p>
+  <div class="modal-actions">
+    <button class="btn btn-ghost" id="dlg-confirmar-nao" type="button">Cancelar</button>
+    <button class="btn btn-danger" id="dlg-confirmar-sim" type="button">Remover</button>
+  </div>
+</dialog>
+
+<!-- ── Toast ─────────────────────────────────────────────── -->
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ── Visually hidden ───────────────────────────────────── -->
+<style>
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0,0,0,0); border: 0;
+  }
+</style>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

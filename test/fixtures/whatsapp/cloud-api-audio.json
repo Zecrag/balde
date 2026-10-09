@@ -1,0 +1,42 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "10987654321",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "5511999998888",
+              "phone_number_id": "100600000000001"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Maria Oliveira"
+                },
+                "wa_id": "5511988881111"
+              }
+            ],
+            "messages": [
+              {
+                "from": "5511988881111",
+                "id": "wamid.HBgLNTUxMTk5ODg4ODgxMTFRM0I2RDQzMjI=",
+                "timestamp": "1728312240",
+                "type": "audio",
+                "audio": {
+                  "id": "media-audio-cloud-999",
+                  "mime_type": "audio/ogg; codecs=opus",
+                  "url": "https://lookaside.fbsbx.com/media/audio.ogg",
+                  "base64": "T2dnUwACAAAAAAAAAABhM3J1AAAAAM1uMZwB"
+                }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

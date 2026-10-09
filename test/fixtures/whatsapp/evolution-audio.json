@@ -1,0 +1,26 @@
+{
+  "event": "messages.upsert",
+  "instance": "cliente-alfa",
+  "data": {
+    "key": {
+      "remoteJid": "120363025348923456@g.us",
+      "fromMe": false,
+      "id": "EVO_MSG_AUD_102",
+      "participant": "5511999990002@s.whatsapp.net"
+    },
+    "pushName": "Ana Paula",
+    "messageType": "audioMessage",
+    "message": {
+      "audioMessage": {
+        "url": "https://api.exemplo.com/media/audio-sample.ogg",
+        "mimetype": "audio/ogg; codecs=opus",
+        "seconds": 25,
+        "base64": "T2dnUwACAAAAAAAAAABhM3J1AAAAAM1uMZwB"
+      }
+    },
+    "messageTimestamp": 1728312060,
+    "groupInfo": {
+      "subject": "Projeto Alfa - Empresa X"
+    }
+  }
+}
