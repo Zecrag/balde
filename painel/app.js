@@ -264,8 +264,11 @@ async function fetchDestinos() {
   return r.json();
 }
 
-async function fetchMensagens(chatId) {
-  const r = await fetch(`${API}/mensagens?chatId=${encodeURIComponent(chatId)}`);
+async function fetchMensagens(chatId, tarefaId) {
+  const url = tarefaId
+    ? `${API}/mensagens?chatId=${encodeURIComponent(chatId || '')}&tarefaId=${encodeURIComponent(tarefaId)}`
+    : `${API}/mensagens?chatId=${encodeURIComponent(chatId || '')}`;
+  const r = await fetch(url);
   if (!r.ok) return [];
   return (await r.json()).mensagens ?? [];
 }
@@ -613,11 +616,15 @@ function renderTarefa(t) {
     </div>
 
     <div class="t-detalhes" id="detalhes-${id}" ${aberta ? '' : 'hidden'}>
-      ${t.descricao ? `<p class="tarefa-descricao">${esc(t.descricao)}</p>` : ''}
-      ${renderNota(t.nota)}
-      ${renderLinks(t.links)}
+      ${renderNota(t.nota || t.descricao)}
       ${t.faltando?.length ? `<div class="tarefa-faltando"><strong>Falta:</strong> ${esc(t.faltando.join(' · '))}</div>` : ''}
+      <div class="tarefa-fontes">
+        <button class="mensagens-toggle" type="button" data-msg-id="${id}" data-chat-id="${esc(t.chatId ?? '')}" aria-expanded="false">${ICONE.msgs} Mensagens-fonte</button>
+        <div class="mensagens-lista" id="msgs-${id}"></div>
+      </div>
+      ${renderLinks(t.links)}
       ${t.destino ? `<div class="tarefa-destino">Distribuída para ${esc(t.destino.nome ?? t.destino.alvo)} (${esc(t.destino.tipo)})</div>` : ''}
+      ${t.descricao && t.nota && t.descricao !== t.nota ? `<p class="tarefa-descricao">${esc(t.descricao)}</p>` : ''}
 
       <div class="t-campos">
         <label class="campo">Título
@@ -638,9 +645,7 @@ function renderTarefa(t) {
 
       <div class="tarefa-actions">
         <button class="btn btn-primary" type="button" data-dist-id="${id}">${ICONE.enviar} Distribuir</button>
-        <button class="mensagens-toggle" type="button" data-msg-id="${id}" data-chat-id="${esc(t.chatId ?? '')}" aria-expanded="false">${ICONE.msgs} Mensagens-fonte</button>
       </div>
-      <div class="mensagens-lista" id="msgs-${id}"></div>
     </div>
   </article>`;
 }
@@ -860,6 +865,31 @@ document.addEventListener('drop', async e => {
   await moverTarefa(id, alvo.dataset.dropEmpresa, projeto);
 });
 
+function formatarTextoMensagem(m) {
+  if (m.tipo === 'audio' || m.transcricao) {
+    if (m.transcricao) {
+      return `🎤 Áudio (transcrição): ${m.transcricao}`;
+    }
+    return m.texto || '🎤 Áudio (sem transcrição)';
+  }
+  if (m.tipo === 'imagem' || m.descricaoImagem) {
+    if (m.descricaoImagem) {
+      return m.texto ? `${m.texto} — 🖼️ Imagem: ${m.descricaoImagem}` : `🖼️ Imagem: ${m.descricaoImagem}`;
+    }
+    return m.texto || '🖼️ Imagem (sem descrição)';
+  }
+  if (m.tipo === 'pdf') {
+    const nome = m.midiaNome || (m.midiaPath ? m.midiaPath.split('/').pop() : '') || 'Documento PDF';
+    const trecho = (m.texto || '').replace(/\[📎\s*não lido:[^\]]*\]/gi, '').trim();
+    if (trecho) {
+      const trechoCurto = trecho.length > 300 ? `${trecho.slice(0, 300)}…` : trecho;
+      return `📄 PDF (${nome}): ${trechoCurto}`;
+    }
+    return `📄 PDF: ${nome}`;
+  }
+  return m.texto || m.transcricao || m.descricaoImagem || '(sem texto)';
+}
+
 async function alternarMensagens(btn) {
   const id = btn.dataset.msgId;
   const container = document.getElementById(`msgs-${id}`);
@@ -871,7 +901,10 @@ async function alternarMensagens(btn) {
   }
   btn.disabled = true;
   try {
-    const msgs = await fetchMensagens(btn.dataset.chatId);
+    const t = _tarefas.find(x => x.id === id);
+    const fontesIds = t?.fontes || t?.mensagensRef || [];
+    const msgsBrutas = await fetchMensagens(btn.dataset.chatId, id);
+    const msgs = fontesIds.length ? msgsBrutas.filter(m => fontesIds.includes(m.id)) : msgsBrutas;
     container.innerHTML = msgs.length === 0
       ? `<p class="estado-vazio estado-vazio-inline">Nenhuma mensagem encontrada.</p>`
       : msgs.map(m => `
@@ -880,7 +913,7 @@ async function alternarMensagens(btn) {
             <span>${esc(m.autor ?? '?')}</span>
             <span>${m.ts ? new Date(m.ts).toLocaleString('pt-BR') : ''}</span>
           </div>
-          <div class="msg-texto">${esc(m.texto || m.transcricao || '(sem texto)')}</div>
+          <div class="msg-texto">${esc(formatarTextoMensagem(m))}</div>
         </div>`).join('');
   } catch {
     container.innerHTML = `<p class="estado-vazio estado-vazio-inline erro">Erro ao carregar mensagens.</p>`;
