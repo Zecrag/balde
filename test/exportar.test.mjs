@@ -36,6 +36,11 @@ test('Exportação limpa funciona', (t) => {
     assert.ok(fs.existsSync(path.join(destino, 'README.md')));
     assert.ok(!fs.existsSync(path.join(destino, 'dados')));
     assert.ok(!fs.existsSync(path.join(destino, '.env')));
+    assert.ok(!fs.existsSync(path.join(destino, '.codex')));
+    const arquivos = fs.readdirSync(destino, { recursive: true }).map(f => path.basename(String(f)));
+    for (const nome of ['config-avisos.json', 'avisos.jsonl', 'avisos-estado.json']) {
+      assert.ok(!arquivos.includes(nome), `${nome} não pode sair na exportação`);
+    }
     
   } finally {
     if (backupGrupos) fs.writeFileSync(gruposPath, backupGrupos);

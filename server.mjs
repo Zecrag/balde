@@ -13,7 +13,7 @@
 import http from 'node:http';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
-import { existsSync, copyFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -51,6 +51,7 @@ import { processar } from './lib/motor/index.mjs';
 import { criarApi } from './lib/api.mjs';
 import { criarRotaLeitura, ROTAS_LEITURA } from './lib/leitura.mjs';
 import { iniciarWatcher } from './lib/config.mjs';
+import { CONFIG_AVISOS_PADRAO } from './lib/avisos.mjs';
 
 
 
@@ -78,6 +79,16 @@ function garantirDiretorios() {
       } catch (err) {
         console.warn('[Balde] Aviso ao copiar clientes.exemplo.json:', err.message);
       }
+    }
+  }
+
+  const configAvisosJson = join(dadosDir, 'config-avisos.json');
+  if (!existsSync(configAvisosJson)) {
+    try {
+      const padrao = CONFIG_AVISOS_PADRAO;
+      writeFileSync(configAvisosJson, JSON.stringify(padrao, null, 2) + '\n', 'utf8');
+    } catch (err) {
+      console.warn('[Balde] Aviso ao criar config-avisos.json:', err.message);
     }
   }
 }
@@ -228,6 +239,17 @@ export async function iniciarServidor(opcoes = {}) {
       paradas.push(() => notif.parar());
     } catch (e) {
       console.warn('[Balde] Notificador não iniciado:', e.message);
+    }
+    try {
+      const { iniciarAgendadorAvisos } = await import('./lib/avisos.mjs');
+      const agendador = iniciarAgendadorAvisos({
+        dadosDir,
+        store: obterStorePadrao(),
+        gruposMdPath: process.env.BALDE_GRUPOS_MD || join(__dirname, 'GRUPOS.md'),
+      });
+      paradas.push(() => agendador.parar());
+    } catch (e) {
+      console.warn('[Balde] Agendador de avisos não iniciado:', e.message);
     }
   }
 

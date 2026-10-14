@@ -33,11 +33,49 @@
 </nav>
 
 <div id="view-tarefas" role="tabpanel" aria-labelledby="aba-tarefas">
+<!-- ── Mini painel no topo (GB-60) ────────────────────────── -->
+<aside class="mini-painel-alertas" id="mini-painel-alertas" hidden>
+  <button class="mpa-faixa" id="mpa-faixa" type="button" aria-expanded="false" aria-controls="mpa-painelzinho" aria-label="Alertas de prazos">
+    <div class="mpa-contadores">
+      <span class="mpa-contador mpa-atrasadas" title="Tarefas atrasadas">
+        <span class="mpa-bolinha" aria-hidden="true">🔴</span> atrasadas <strong id="mpa-cnt-atrasadas">0</strong>
+      </span>
+      <span class="mpa-sep" aria-hidden="true">·</span>
+      <span class="mpa-contador mpa-hoje" title="Tarefas que vencem hoje">
+        <span class="mpa-bolinha" aria-hidden="true">🟠</span> vence hoje <strong id="mpa-cnt-hoje">0</strong>
+      </span>
+      <span class="mpa-sep" aria-hidden="true">·</span>
+      <span class="mpa-contador mpa-proximas" title="Tarefas com prazo próximo">
+        <span class="mpa-bolinha" aria-hidden="true">🟡</span> <span id="mpa-rotulo-proximas">próximos 3 dias</span> <strong id="mpa-cnt-proximas">0</strong>
+      </span>
+      <span class="mpa-sep" aria-hidden="true">·</span>
+      <span class="mpa-contador mpa-balde" title="Tarefas acumuladas no Balde">
+        <span class="mpa-bolinha" aria-hidden="true">🪣</span> no Balde <strong id="mpa-cnt-balde">0</strong>
+      </span>
+    </div>
+    <span class="mpa-seta" aria-hidden="true">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </span>
+  </button>
+  <div class="mpa-painelzinho" id="mpa-painelzinho" hidden aria-label="Lista curta agrupada de alertas">
+    <div class="mpa-painelzinho-topo">
+      <span class="mpa-painelzinho-titulo">Alertas de prazos</span>
+      <button class="btn btn-ghost btn-icone" id="mpa-btn-fechar" type="button" aria-label="Fechar lista de alertas">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="mpa-painelzinho-conteudo" id="mpa-painelzinho-conteudo" aria-live="polite">
+      <!-- preenchido dinamicamente por JS -->
+    </div>
+  </div>
+</aside>
+
 <!-- ── Leitura do WhatsApp (GB-45) ───────────────────────── -->
 <section class="leitura-barra" aria-label="Leitura do WhatsApp">
   <span class="tag-leitura" id="tag-leitura" title="Quando o Balde leu os grupos pela última vez e quanto custou">Última leitura –</span>
   <button class="btn btn-ghost btn-sm" id="btn-historico" type="button" aria-haspopup="dialog">Histórico</button>
   <button class="btn btn-ghost btn-sm" id="btn-bloco" type="button" aria-haspopup="dialog">Modo bloco</button>
+  <button class="btn btn-ghost btn-sm" id="btn-avisos" type="button" aria-haspopup="dialog" hidden>Avisos WhatsApp</button>
   <button class="btn btn-primary btn-sm" id="btn-ler" type="button" aria-describedby="ler-resultado">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     Atualizar
@@ -273,6 +311,99 @@
     <h3 class="bloco-pendentes-titulo">Blocos pendentes</h3>
     <div class="bloco-pendentes-lista" id="bloco-pendentes-lista" aria-live="polite">
       <p class="bloco-vazio">Nenhum bloco pendente no momento.</p>
+    </div>
+  </div>
+</dialog>
+
+<!-- ── Avisos WhatsApp (GB-60) ────────────────────────────── -->
+<dialog class="modal-grupos modal-avisos" id="dlg-avisos" aria-labelledby="dlg-avisos-titulo">
+  <div class="mg-cabecalho">
+    <h2 class="modal-titulo" id="dlg-avisos-titulo">Avisos WhatsApp</h2>
+    <button class="btn btn-ghost btn-icone" id="dlg-avisos-fechar" type="button" aria-label="Fechar avisos">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <p class="avisos-explicacao">Só envia para os seus números, nunca para grupos. Sem custo de IA.</p>
+
+  <form class="avisos-form" id="form-avisos" novalidate>
+    <div class="bloco-switch-linha">
+      <label class="bloco-toggle" for="avisos-ativo">
+        <input type="checkbox" id="avisos-ativo" name="ativo" checked>
+        <span class="bloco-toggle-slider" aria-hidden="true"></span>
+        <span class="bloco-toggle-rotulo">Avisos automáticos ativados</span>
+      </label>
+    </div>
+
+    <!-- Números do dono -->
+    <div class="avisos-secao">
+      <div class="avisos-secao-topo">
+        <span class="avisos-rotulo">Números do dono (com DDI)</span>
+        <button class="btn btn-ghost btn-sm" id="btn-avisos-add-num" type="button">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Adicionar número
+        </button>
+      </div>
+      <div class="avisos-numeros-lista" id="avisos-numeros-lista"></div>
+      <p class="campo-dica">Formato com DDI: ex. 5547999998888</p>
+    </div>
+
+    <!-- Janela de alerta em dias -->
+    <div class="avisos-campo">
+      <label for="avisos-janela">Janela de alerta (dias)</label>
+      <input class="inline-input avisos-input-janela" id="avisos-janela" name="janelaDias" type="number" min="1" max="30" value="3" required>
+      <p class="campo-dica">Tarefas que vencem em até N dias aparecem como "faltam N d" (padrão: 3).</p>
+    </div>
+
+    <!-- Lista de horários -->
+    <div class="avisos-secao">
+      <div class="avisos-secao-topo">
+        <span class="avisos-rotulo">Horários de envio</span>
+        <button class="btn btn-ghost btn-sm" id="btn-avisos-add-horario" type="button">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Adicionar horário
+        </button>
+      </div>
+      <div class="avisos-horarios-lista" id="avisos-horarios-lista"></div>
+    </div>
+
+    <div class="avisos-acoes">
+      <button class="btn btn-primary btn-sm" id="btn-avisos-salvar" type="submit">Salvar configurações</button>
+      <span class="avisos-status" id="avisos-status" aria-live="polite"></span>
+    </div>
+  </form>
+
+  <!-- Seção Teste / Prévia -->
+  <div class="avisos-testes-secao">
+    <h3 class="avisos-subtitulo">Testes e Prévia</h3>
+    <div class="avisos-testes-linha">
+      <label for="avisos-tipo-teste" class="sr-only">Tipo de aviso</label>
+      <select class="inline-input" id="avisos-tipo-teste">
+        <option value="resumo">Resumo diário</option>
+        <option value="urgente">Urgente</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" id="btn-avisos-previa" type="button">Ver prévia</button>
+      <button class="btn btn-ghost btn-sm" id="btn-avisos-teste" type="button">Enviar teste agora</button>
+      <span class="avisos-teste-status" id="avisos-teste-status" aria-live="polite"></span>
+    </div>
+    <div class="aviso-previa-caixa" id="aviso-previa-caixa" hidden>
+      <div class="aviso-previa-topo">
+        <strong class="aviso-previa-titulo">Prévia do texto:</strong>
+        <button class="btn btn-ghost btn-icone" id="btn-fechar-previa" type="button" aria-label="Fechar prévia">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <pre class="aviso-previa-texto" id="aviso-previa-texto"></pre>
+    </div>
+  </div>
+
+  <!-- Últimos envios do log -->
+  <div class="avisos-log-secao">
+    <div class="avisos-secao-topo">
+      <h3 class="avisos-subtitulo">Últimos envios do log</h3>
+      <button class="btn btn-ghost btn-sm" id="btn-recarregar-log" type="button">Atualizar</button>
+    </div>
+    <div class="avisos-log-lista" id="avisos-log-lista" aria-live="polite">
+      <p class="avisos-vazio">Nenhum envio registrado.</p>
     </div>
   </div>
 </dialog>

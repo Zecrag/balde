@@ -30,6 +30,7 @@ import {
   normalizarUso, normalizarLeitura, intervalo, preencherDias, fmtUSD, fmtTokens, resultadoDosGrupos,
   fmtData, diaISO, fmtDataHoraCurta, diasAteData, rotuloPrazo, formatarPrazoProjeto,
   obterPrazoProjeto, obterPrazoCliente, compararPorPrazo, formatarDestinoLog,
+  formatarPiorTag, calcularPiorPrazo,
 } from './util.js';
 
 // ── Configuração ───────────────────────────────────────────
@@ -89,6 +90,47 @@ const $blocoStatus = document.getElementById('bloco-status');
 const $btnBlocoSalvar = document.getElementById('btn-bloco-salvar');
 const $blocoPendentesLista = document.getElementById('bloco-pendentes-lista');
 let _blocosPendentes = [];
+
+// GB-60: Mini painel no topo & Avisos WhatsApp
+let _alertas = null;
+let _configAvisos = null;
+let _janelaDias = 3;
+let _numerosAvisos = [];
+let _horariosAvisos = [];
+
+const $miniPainelAlertas = document.getElementById('mini-painel-alertas');
+const $mpaFaixa = document.getElementById('mpa-faixa');
+const $mpaCntAtrasadas = document.getElementById('mpa-cnt-atrasadas');
+const $mpaCntHoje = document.getElementById('mpa-cnt-hoje');
+const $mpaCntProximas = document.getElementById('mpa-cnt-proximas');
+const $mpaRotuloProximas = document.getElementById('mpa-rotulo-proximas');
+const $mpaCntBalde = document.getElementById('mpa-cnt-balde');
+const $mpaPainelzinho = document.getElementById('mpa-painelzinho');
+const $mpaPainelzinhoConteudo = document.getElementById('mpa-painelzinho-conteudo');
+const $mpaBtnFechar = document.getElementById('mpa-btn-fechar');
+
+const $btnAvisos = document.getElementById('btn-avisos');
+const $dlgAvisos = document.getElementById('dlg-avisos');
+const $dlgAvisosFechar = document.getElementById('dlg-avisos-fechar');
+const $formAvisos = document.getElementById('form-avisos');
+const $avisosAtivo = document.getElementById('avisos-ativo');
+const $avisosNumerosLista = document.getElementById('avisos-numeros-lista');
+const $btnAvisosAddNum = document.getElementById('btn-avisos-add-num');
+const $avisosJanela = document.getElementById('avisos-janela');
+const $avisosHorariosLista = document.getElementById('avisos-horarios-lista');
+const $btnAvisosAddHorario = document.getElementById('btn-avisos-add-horario');
+const $btnAvisosSalvar = document.getElementById('btn-avisos-salvar');
+const $avisosStatus = document.getElementById('avisos-status');
+const $avisosTipoTeste = document.getElementById('avisos-tipo-teste');
+const $btnAvisosPrevia = document.getElementById('btn-avisos-previa');
+const $btnAvisosTeste = document.getElementById('btn-avisos-teste');
+const $avisosTesteStatus = document.getElementById('avisos-teste-status');
+const $avisoPreviaCaixa = document.getElementById('aviso-previa-caixa');
+const $avisoPreviaTexto = document.getElementById('aviso-previa-texto');
+const $btnFecharPrevia = document.getElementById('btn-fechar-previa');
+const $avisosLogLista = document.getElementById('avisos-log-lista');
+const $btnRecarregarLog = document.getElementById('btn-recarregar-log');
+
 const $nav     = document.getElementById('nav-empresas');
 const $recolher = document.getElementById('btn-recolher');
 
@@ -202,10 +244,12 @@ function setSyncStatus(status, label) {
 async function fetchTarefas() {
   setSyncStatus('syncing', 'Atualizando…');
   try {
-    const [r, rg, rb] = await Promise.all([
+    const [r, rg, rb, ra, rc] = await Promise.all([
       fetch(`${API}/tarefas`),
       fetch(`${API}/config/grupos`).catch(() => null),
       fetch(`${API}/blocos/pendentes`).catch(() => null),
+      fetch(`${API}/alertas?janela=${encodeURIComponent(_janelaDias)}`).catch(() => null),
+      fetch(`${API}/config/avisos`).catch(() => null),
     ]);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const dados = await r.json();
@@ -218,6 +262,29 @@ async function fetchTarefas() {
     } else {
       _blocosPendentes = [];
     }
+
+    // GB-60: Config de Avisos (esconde se rota não existir)
+    if (rc?.ok) {
+      const cfg = await rc.json();
+      _configAvisos = cfg;
+      if (typeof cfg.janelaDias === 'number' && cfg.janelaDias > 0) {
+        _janelaDias = cfg.janelaDias;
+      }
+      if ($btnAvisos) $btnAvisos.hidden = false;
+    } else {
+      _configAvisos = null;
+      if ($btnAvisos) $btnAvisos.hidden = true;
+    }
+
+    // GB-60: Alertas (esconde mini painel se rota não existir)
+    if (ra?.ok) {
+      _alertas = await ra.json();
+      renderMiniPainel();
+    } else {
+      _alertas = null;
+      if ($miniPainelAlertas) $miniPainelAlertas.hidden = true;
+    }
+
     _tarefas = (dados.tarefas ?? []).filter(t => !t.arquivado);
     _tarefasArquivadas = (dados.tarefas ?? []).filter(t => t.arquivado);
     _empresas = dados.empresas ?? [];
@@ -398,20 +465,25 @@ function render() {
     const idCorpo = `ge-corpo-${navItens.length}`;
     navItens.push({ empresa, abertas: conta.abertas, idSecao: `ge-${navItens.length}` });
 
-    // GB-51: Prazos dos projetos ativos e prazo mais próximo para o cliente
-    const prazosProjetos = [];
-    const mapaPrazoProj = new Map();
-    for (const projeto of projetos) {
-      const p = infoProj[projeto];
-      const ativasProj = _tarefas.filter(t => (t.empresa || SEM_EMPRESA) === empresa && (t.projeto || SEM_PROJETO) === projeto && t.estado !== 'feita' && t.estado !== 'descartada');
-      const prazoProj = obterPrazoProjeto(p, ativasProj);
-      if (prazoProj) {
-        prazosProjetos.push(prazoProj);
-        mapaPrazoProj.set(projeto, prazoProj);
-      }
+    // GB-60: Tag na empresa com o PIOR estado de porEmpresa (ou cálculo):
+    // "atrasada 2 d" (vermelho) > "vence hoje" (laranja) > "faltam N d" (amarelo, só se <= janelaDias). Fora da janela: nada.
+    let tagInfoCliente = null;
+    if (_alertas?.porEmpresa?.[empresa]?.pior) {
+      tagInfoCliente = formatarPiorTag(_alertas.porEmpresa[empresa].pior, _janelaDias);
     }
-    const prazoCliente = obterPrazoCliente(prazosProjetos);
-    const etiquetaCliente = renderEtiquetaPrazo(prazoCliente);
+    if (!tagInfoCliente) {
+      const todosPrazosEmpresa = [];
+      for (const projeto of projetos) {
+        const p = infoProj[projeto];
+        if (p?.fim) todosPrazosEmpresa.push(p.fim);
+        const ativasProj = _tarefas.filter(t => (t.empresa || SEM_EMPRESA) === empresa && (t.projeto || SEM_PROJETO) === projeto && t.estado !== 'feita' && t.estado !== 'descartada');
+        for (const t of ativasProj) {
+          if (t.prazo) todosPrazosEmpresa.push(t.prazo);
+        }
+      }
+      tagInfoCliente = calcularPiorPrazo(todosPrazosEmpresa, _janelaDias);
+    }
+    const etiquetaCliente = tagInfoCliente ? `<span class="etiqueta-prazo ${tagInfoCliente.classe}" title="Prazo">${esc(tagInfoCliente.texto)}</span>` : '';
 
     const htmlValores = [
       info ? `<span class="ge-ganho" title="Ganho total da empresa (soma dos projetos ativos)">${fmtGanho(info.ganhoTotal)}</span>` : '',
@@ -440,8 +512,22 @@ function render() {
       const { ativas, feitas } = grupos.get(empresa).get(projeto);
       ativas.sort(compararPorPrazo);
       const p = infoProj[projeto];
-      const prazoProj = mapaPrazoProj.get(projeto);
-      const etiquetaProj = renderEtiquetaPrazo(prazoProj);
+
+      // GB-60: Tag no projeto com o PIOR estado (mesmo critério da empresa):
+      const chaveProj = `${empresa}|${projeto}`;
+      let tagInfoProj = null;
+      if (_alertas?.porProjeto?.[chaveProj]?.pior) {
+        tagInfoProj = formatarPiorTag(_alertas.porProjeto[chaveProj].pior, _janelaDias);
+      }
+      if (!tagInfoProj) {
+        const prazosProj = [];
+        if (p?.fim) prazosProj.push(p.fim);
+        for (const t of ativas) {
+          if (t.prazo) prazosProj.push(t.prazo);
+        }
+        tagInfoProj = calcularPiorPrazo(prazosProj, _janelaDias);
+      }
+      const etiquetaProj = tagInfoProj ? `<span class="etiqueta-prazo ${tagInfoProj.classe}" title="Prazo">${esc(tagInfoProj.texto)}</span>` : '';
 
       const ehBaldeProjeto = ehBaldeEmpresa || String(projeto ?? '').trim().toLowerCase() === 'balde';
       const tagsBlocoProjeto = ehBaldeProjeto && _blocosPendentes.length
@@ -1684,6 +1770,539 @@ if ($formBloco) {
       if ($btnBlocoSalvar) $btnBlocoSalvar.disabled = false;
     }
   });
+}
+
+// ── GB-60 · Mini Painel no Topo & Navegação ────────────────
+function renderMiniPainel() {
+  if (!$miniPainelAlertas) return;
+  if (!_alertas) {
+    $miniPainelAlertas.hidden = true;
+    return;
+  }
+  $miniPainelAlertas.hidden = false;
+
+  const atrasadas = Array.isArray(_alertas.atrasadas) ? _alertas.atrasadas : [];
+  const venceHoje = Array.isArray(_alertas.venceHoje) ? _alertas.venceHoje : [];
+  const proximas = Array.isArray(_alertas.proximas) ? _alertas.proximas : [];
+  const balde = Number(_alertas.baldeParado ?? 0);
+  const projAtrasados = Array.isArray(_alertas.projetosAtrasados) ? _alertas.projetosAtrasados : [];
+
+  if ($mpaCntAtrasadas) $mpaCntAtrasadas.textContent = atrasadas.length;
+  if ($mpaCntHoje) $mpaCntHoje.textContent = venceHoje.length;
+  if ($mpaCntProximas) $mpaCntProximas.textContent = proximas.length;
+  if ($mpaRotuloProximas) $mpaRotuloProximas.textContent = `próximos ${_janelaDias} dias`;
+  if ($mpaCntBalde) $mpaCntBalde.textContent = balde;
+
+  renderConteudoPainelzinho({ atrasadas, venceHoje, proximas, projetosAtrasados: projAtrasados, balde });
+}
+
+function renderConteudoPainelzinho({ atrasadas, venceHoje, proximas, projetosAtrasados, balde }) {
+  if (!$mpaPainelzinhoConteudo) return;
+
+  const total = atrasadas.length + venceHoje.length + proximas.length + projetosAtrasados.length;
+  if (total === 0) {
+    $mpaPainelzinhoConteudo.innerHTML = `<p class="mpa-vazio">Nenhum alerta de prazo pendente no momento.</p>`;
+    return;
+  }
+
+  let html = '';
+
+  // 1. Atrasadas
+  if (atrasadas.length) {
+    html += `<div class="mpa-grupo">
+      <div class="mpa-grupo-titulo"><span aria-hidden="true">🔴</span> Atrasadas (${atrasadas.length})</div>
+      <div class="mpa-grupo-lista">
+        ${atrasadas.map(t => {
+          const d = Math.abs(t.dias ?? 1);
+          return `<button class="mpa-item" type="button" data-nav-tarefa="${esc(t.id)}" data-empresa="${esc(t.empresa || '')}">
+            <span class="mpa-item-info">
+              <span class="mpa-item-empresa">${esc(t.empresa || 'Sem empresa')}</span>
+              <span class="mpa-item-sep">·</span>
+              <span class="mpa-item-titulo" title="${esc(t.titulo)}">${esc(t.titulo || '(sem título)')}</span>
+            </span>
+            <span class="etiqueta-prazo atrasado">atrasada ${d} d</span>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // 2. Vence hoje
+  if (venceHoje.length) {
+    html += `<div class="mpa-grupo">
+      <div class="mpa-grupo-titulo"><span aria-hidden="true">🟠</span> Vence hoje (${venceHoje.length})</div>
+      <div class="mpa-grupo-lista">
+        ${venceHoje.map(t => {
+          return `<button class="mpa-item" type="button" data-nav-tarefa="${esc(t.id)}" data-empresa="${esc(t.empresa || '')}">
+            <span class="mpa-item-info">
+              <span class="mpa-item-empresa">${esc(t.empresa || 'Sem empresa')}</span>
+              <span class="mpa-item-sep">·</span>
+              <span class="mpa-item-titulo" title="${esc(t.titulo)}">${esc(t.titulo || '(sem título)')}</span>
+            </span>
+            <span class="etiqueta-prazo laranja">vence hoje</span>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // 3. Próximas
+  if (proximas.length) {
+    html += `<div class="mpa-grupo">
+      <div class="mpa-grupo-titulo"><span aria-hidden="true">🟡</span> Próximos ${_janelaDias} dias (${proximas.length})</div>
+      <div class="mpa-grupo-lista">
+        ${proximas.map(t => {
+          const d = t.dias ?? 1;
+          return `<button class="mpa-item" type="button" data-nav-tarefa="${esc(t.id)}" data-empresa="${esc(t.empresa || '')}">
+            <span class="mpa-item-info">
+              <span class="mpa-item-empresa">${esc(t.empresa || 'Sem empresa')}</span>
+              <span class="mpa-item-sep">·</span>
+              <span class="mpa-item-titulo" title="${esc(t.titulo)}">${esc(t.titulo || '(sem título)')}</span>
+            </span>
+            <span class="etiqueta-prazo amarelo">faltam ${d} d</span>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // 4. Projetos atrasados
+  if (projetosAtrasados.length) {
+    html += `<div class="mpa-grupo">
+      <div class="mpa-grupo-titulo"><span aria-hidden="true">📁</span> Projetos atrasados (${projetosAtrasados.length})</div>
+      <div class="mpa-grupo-lista">
+        ${projetosAtrasados.map(p => {
+          const d = Math.abs(p.dias ?? 1);
+          return `<button class="mpa-item" type="button" data-nav-projeto="${esc(p.projeto)}" data-empresa="${esc(p.empresa)}">
+            <span class="mpa-item-info">
+              <span class="mpa-item-empresa">${esc(p.empresa)}</span>
+              <span class="mpa-item-sep">·</span>
+              <span class="mpa-item-titulo">${esc(p.projeto)}${p.abertas ? ` (${p.abertas} abertas)` : ''}</span>
+            </span>
+            <span class="etiqueta-prazo atrasado">atrasado ${d} d</span>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  $mpaPainelzinhoConteudo.innerHTML = html;
+}
+
+function alternarPainelzinhoAlertas() {
+  if (!$mpaPainelzinho) return;
+  const aberto = !$mpaPainelzinho.hidden;
+  if (aberto) {
+    fecharPainelzinhoAlertas();
+  } else {
+    abrirPainelzinhoAlertas();
+  }
+}
+
+function abrirPainelzinhoAlertas() {
+  if (!$mpaPainelzinho) return;
+  $mpaPainelzinho.hidden = false;
+  if ($mpaFaixa) $mpaFaixa.setAttribute('aria-expanded', 'true');
+}
+
+function fecharPainelzinhoAlertas() {
+  if (!$mpaPainelzinho) return;
+  $mpaPainelzinho.hidden = true;
+  if ($mpaFaixa) $mpaFaixa.setAttribute('aria-expanded', 'false');
+}
+
+function navegarParaTarefa(id, empresa) {
+  fecharPainelzinhoAlertas();
+  irParaTarefa(id);
+}
+
+function navegarParaProjeto(empresa, projeto) {
+  fecharPainelzinhoAlertas();
+  if (_aba !== 'tarefas') {
+    mostrarAba('tarefas', false);
+  }
+  if (_filtroEmpresa && _filtroEmpresa !== empresa) {
+    _filtroEmpresa = '';
+    if ($sel_e) $sel_e.value = '';
+  }
+  if (_filtroProjeto && _filtroProjeto !== projeto) {
+    _filtroProjeto = '';
+    if ($sel_p) $sel_p.value = '';
+  }
+  if (empresa) {
+    alternarEmpresa(empresa, true);
+  }
+  render();
+  setTimeout(() => {
+    const el = document.querySelector(`[data-drop-empresa="${CSS.escape(empresa)}"][data-drop-projeto="${CSS.escape(projeto)}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('destaque-tarefa');
+      setTimeout(() => el.classList.remove('destaque-tarefa'), 2500);
+    }
+  }, 50);
+}
+
+if ($mpaFaixa) {
+  $mpaFaixa.addEventListener('click', e => {
+    e.stopPropagation();
+    alternarPainelzinhoAlertas();
+  });
+}
+if ($mpaBtnFechar) {
+  $mpaBtnFechar.addEventListener('click', e => {
+    e.stopPropagation();
+    fecharPainelzinhoAlertas();
+  });
+}
+if ($mpaPainelzinhoConteudo) {
+  $mpaPainelzinhoConteudo.addEventListener('click', e => {
+    const btnTarefa = e.target.closest('[data-nav-tarefa]');
+    if (btnTarefa) {
+      const id = btnTarefa.getAttribute('data-nav-tarefa');
+      const empresa = btnTarefa.getAttribute('data-empresa');
+      navegarParaTarefa(id, empresa);
+      return;
+    }
+    const btnProjeto = e.target.closest('[data-nav-projeto]');
+    if (btnProjeto) {
+      const projeto = btnProjeto.getAttribute('data-nav-projeto');
+      const empresa = btnProjeto.getAttribute('data-empresa');
+      navegarParaProjeto(empresa, projeto);
+      return;
+    }
+  });
+}
+document.addEventListener('click', e => {
+  if ($miniPainelAlertas && !$miniPainelAlertas.contains(e.target)) {
+    fecharPainelzinhoAlertas();
+  }
+});
+
+// ── GB-60 · Modal Avisos WhatsApp ─────────────────────────
+function renderAvisosNumeros() {
+  if (!$avisosNumerosLista) return;
+  if (!_numerosAvisos.length) {
+    $avisosNumerosLista.innerHTML = `<p class="avisos-vazio">Nenhum número cadastrado. Clique em "Adicionar número".</p>`;
+    return;
+  }
+  $avisosNumerosLista.innerHTML = _numerosAvisos.map((num, idx) => `
+    <div class="avisos-num-linha">
+      <input class="inline-input avisos-input-num" type="tel" data-num-idx="${idx}" value="${esc(num)}" placeholder="ex: 5547999998888" autocomplete="off">
+      <button class="btn btn-ghost btn-sm btn-remover-num" type="button" data-del-num="${idx}" title="Remover número">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function renderAvisosHorarios() {
+  if (!$avisosHorariosLista) return;
+  if (!_horariosAvisos.length) {
+    $avisosHorariosLista.innerHTML = `<p class="avisos-vazio">Nenhum horário cadastrado. Clique em "Adicionar horário".</p>`;
+    return;
+  }
+  $avisosHorariosLista.innerHTML = _horariosAvisos.map((h, idx) => `
+    <div class="avisos-horario-linha" data-horario-idx="${idx}">
+      <input type="time" class="inline-input horario-hora" data-hora-idx="${idx}" value="${esc(h.hora || '18:00')}" required>
+      <select class="inline-input horario-tipo" data-tipo-idx="${idx}">
+        <option value="resumo" ${h.tipo === 'resumo' ? 'selected' : ''}>Resumo diário</option>
+        <option value="urgente" ${h.tipo === 'urgente' ? 'selected' : ''}>Urgente</option>
+      </select>
+      <label class="bloco-toggle" title="${h.ativo !== false ? 'Horário ativado' : 'Horário desativado'}">
+        <input type="checkbox" class="horario-ativo" data-ativo-idx="${idx}" ${h.ativo !== false ? 'checked' : ''}>
+        <span class="bloco-toggle-slider" aria-hidden="true"></span>
+      </label>
+      <button class="btn btn-ghost btn-sm btn-remover-horario" type="button" data-del-horario="${idx}" title="Remover horário">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function sincronizarCamposAvisosLocais() {
+  if ($avisosNumerosLista) {
+    const numInputs = $avisosNumerosLista.querySelectorAll('.avisos-input-num');
+    _numerosAvisos = Array.from(numInputs).map(inp => inp.value.trim());
+  }
+  if ($avisosHorariosLista) {
+    const horarioLinhas = $avisosHorariosLista.querySelectorAll('.avisos-horario-linha');
+    _horariosAvisos = Array.from(horarioLinhas).map((linha, idx) => {
+      const horaInp = linha.querySelector('.horario-hora');
+      const tipoInp = linha.querySelector('.horario-tipo');
+      const ativoInp = linha.querySelector('.horario-ativo');
+      const prev = _horariosAvisos[idx] || {};
+      return {
+        id: prev.id || `h_${Date.now()}_${idx}`,
+        hora: horaInp?.value || '18:00',
+        tipo: tipoInp?.value === 'urgente' ? 'urgente' : 'resumo',
+        ativo: Boolean(ativoInp?.checked),
+      };
+    });
+  }
+}
+
+async function abrirModalAvisos() {
+  if (!$dlgAvisos) return;
+  if ($avisosStatus) {
+    $avisosStatus.textContent = '';
+    $avisosStatus.className = 'avisos-status';
+  }
+  if ($avisosTesteStatus) {
+    $avisosTesteStatus.textContent = '';
+    $avisosTesteStatus.className = 'avisos-teste-status';
+  }
+  if ($avisoPreviaCaixa) $avisoPreviaCaixa.hidden = true;
+
+  $dlgAvisos.showModal();
+
+  try {
+    const res = await fetch(`${API}/config/avisos`);
+    if (res.ok) {
+      const cfg = await res.json();
+      _configAvisos = cfg;
+      if ($avisosAtivo) $avisosAtivo.checked = cfg.ativo !== false;
+      if ($avisosJanela) $avisosJanela.value = cfg.janelaDias ?? 3;
+      _numerosAvisos = Array.isArray(cfg.numeros) ? [...cfg.numeros] : [];
+      _horariosAvisos = Array.isArray(cfg.horarios) ? cfg.horarios.map(h => ({ ...h })) : [];
+    } else {
+      if ($avisosJanela) $avisosJanela.value = _janelaDias;
+    }
+  } catch (err) {
+    console.warn('[avisos] Erro ao carregar config:', err);
+  }
+
+  if (!_numerosAvisos.length) _numerosAvisos = [''];
+  if (!_horariosAvisos.length) {
+    _horariosAvisos = [{ id: 'h1', hora: '18:00', tipo: 'resumo', ativo: true }];
+  }
+
+  renderAvisosNumeros();
+  renderAvisosHorarios();
+  carregarLogAvisos();
+}
+
+async function salvarConfigAvisos(e) {
+  if (e) e.preventDefault();
+  sincronizarCamposAvisosLocais();
+
+  if ($btnAvisosSalvar) $btnAvisosSalvar.disabled = true;
+  if ($avisosStatus) {
+    $avisosStatus.textContent = 'Salvando…';
+    $avisosStatus.className = 'avisos-status';
+  }
+
+  const janela = Math.max(1, Math.min(30, Number($avisosJanela?.value) || 3));
+  const ativo = Boolean($avisosAtivo?.checked);
+  const numeros = _numerosAvisos.map(n => String(n).trim().replace(/\D/g, '')).filter(Boolean);
+
+  for (const n of numeros) {
+    if (n.length < 10 || n.length > 15) {
+      if ($avisosStatus) {
+        $avisosStatus.textContent = `Número ${n} inválido: deve ter 10 a 15 dígitos com DDI.`;
+        $avisosStatus.className = 'avisos-status erro';
+      }
+      if ($btnAvisosSalvar) $btnAvisosSalvar.disabled = false;
+      return;
+    }
+  }
+
+  const payload = {
+    ativo,
+    numeros,
+    janelaDias: janela,
+    horarios: _horariosAvisos,
+  };
+
+  try {
+    const res = await fetch(`${API}/config/avisos`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const dados = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(dados.erro || `HTTP ${res.status}`);
+    _configAvisos = payload;
+    _janelaDias = janela;
+    if ($avisosStatus) {
+      $avisosStatus.textContent = 'Configurações salvas!';
+      $avisosStatus.className = 'avisos-status sucesso';
+    }
+    toast('Configuração de avisos salva');
+    await fetchTarefas();
+  } catch (err) {
+    if ($avisosStatus) {
+      $avisosStatus.textContent = err.message || 'Erro ao salvar';
+      $avisosStatus.className = 'avisos-status erro';
+    }
+  } finally {
+    if ($btnAvisosSalvar) $btnAvisosSalvar.disabled = false;
+  }
+}
+
+async function verPreviaAviso() {
+  if ($btnAvisosPrevia) $btnAvisosPrevia.disabled = true;
+  if ($avisosTesteStatus) {
+    $avisosTesteStatus.textContent = 'Gerando prévia…';
+    $avisosTesteStatus.className = 'avisos-teste-status';
+  }
+  const tipo = $avisosTipoTeste?.value || 'resumo';
+  try {
+    const res = await fetch(`${API}/avisos/previa`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo }),
+    });
+    const dados = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(dados.erro || `HTTP ${res.status}`);
+    const texto = dados.texto ?? '';
+    if ($avisoPreviaTexto) $avisoPreviaTexto.textContent = texto || '(sem conteúdo)';
+    if ($avisoPreviaCaixa) $avisoPreviaCaixa.hidden = false;
+    if ($avisosTesteStatus) $avisosTesteStatus.textContent = '';
+  } catch (err) {
+    if ($avisosTesteStatus) {
+      $avisosTesteStatus.textContent = err.message || 'Erro ao obter prévia';
+      $avisosTesteStatus.className = 'avisos-teste-status erro';
+    }
+  } finally {
+    if ($btnAvisosPrevia) $btnAvisosPrevia.disabled = false;
+  }
+}
+
+async function enviarTesteAviso() {
+  if ($btnAvisosTeste) $btnAvisosTeste.disabled = true;
+  if ($avisosTesteStatus) {
+    $avisosTesteStatus.textContent = 'Enviando teste…';
+    $avisosTesteStatus.className = 'avisos-teste-status';
+  }
+  const tipo = $avisosTipoTeste?.value || 'resumo';
+  try {
+    const res = await fetch(`${API}/avisos/teste`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo }),
+    });
+    const dados = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(dados.erro || `HTTP ${res.status}`);
+    if ($avisosTesteStatus) {
+      $avisosTesteStatus.textContent = 'Aviso de teste enviado!';
+      $avisosTesteStatus.className = 'avisos-teste-status sucesso';
+    }
+    toast('Teste de aviso enviado');
+    await carregarLogAvisos();
+  } catch (err) {
+    if ($avisosTesteStatus) {
+      $avisosTesteStatus.textContent = err.message || 'Erro ao enviar teste';
+      $avisosTesteStatus.className = 'avisos-teste-status erro';
+    }
+  } finally {
+    if ($btnAvisosTeste) $btnAvisosTeste.disabled = false;
+  }
+}
+
+async function carregarLogAvisos() {
+  if (!$avisosLogLista) return;
+  try {
+    const res = await fetch(`${API}/avisos/log`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const logs = await res.json();
+    const lista = Array.isArray(logs) ? logs : (logs.logs ?? []);
+    if (!lista.length) {
+      $avisosLogLista.innerHTML = `<p class="avisos-vazio">Nenhum envio registrado ainda.</p>`;
+      return;
+    }
+    const ordenados = [...lista].sort((a, b) => {
+      const ta = new Date(a.em || a.data || a.ts || 0).getTime();
+      const tb = new Date(b.em || b.data || b.ts || 0).getTime();
+      return tb - ta;
+    });
+    $avisosLogLista.innerHTML = ordenados.map(item => {
+      const dataStr = item.em || item.data || item.ts || item.timestamp || item.criadoEm;
+      const dataFmt = dataStr ? fmtDataHoraCurta(dataStr) || dataStr : '–';
+      const tipo = item.tipo === 'urgente' ? 'Urgente' : 'Resumo';
+      const dest = item.numero || item.destinatario || item.to || '–';
+      const status = item.ok === true ? 'enviado' : (item.ok === false ? (item.erro || 'falha') : (item.status || 'enviado'));
+      const statusCls = item.ok === false ? 'erro' : 'sucesso';
+      return `<div class="avisos-log-item">
+        <span class="log-data">${esc(dataFmt)}</span>
+        <span class="log-tipo">${esc(tipo)}</span>
+        <span class="log-destinatario">${esc(dest)}</span>
+        <span class="log-status ${statusCls}">${esc(status)}</span>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    $avisosLogLista.innerHTML = `<p class="avisos-vazio">Sem histórico disponível.</p>`;
+  }
+}
+
+if ($btnAvisos) {
+  $btnAvisos.addEventListener('click', () => abrirModalAvisos());
+}
+if ($dlgAvisosFechar) {
+  $dlgAvisosFechar.addEventListener('click', () => $dlgAvisos.close());
+}
+if ($dlgAvisos) {
+  $dlgAvisos.addEventListener('click', e => { if (e.target === $dlgAvisos) $dlgAvisos.close(); });
+}
+if ($btnAvisosAddNum) {
+  $btnAvisosAddNum.addEventListener('click', () => {
+    sincronizarCamposAvisosLocais();
+    _numerosAvisos.push('');
+    renderAvisosNumeros();
+    const inputs = $avisosNumerosLista.querySelectorAll('.avisos-input-num');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+}
+if ($avisosNumerosLista) {
+  $avisosNumerosLista.addEventListener('click', e => {
+    const btnDel = e.target.closest('[data-del-num]');
+    if (btnDel) {
+      sincronizarCamposAvisosLocais();
+      const idx = Number(btnDel.getAttribute('data-del-num'));
+      _numerosAvisos.splice(idx, 1);
+      renderAvisosNumeros();
+    }
+  });
+}
+if ($btnAvisosAddHorario) {
+  $btnAvisosAddHorario.addEventListener('click', () => {
+    sincronizarCamposAvisosLocais();
+    _horariosAvisos.push({
+      id: `h_${Date.now()}_${_horariosAvisos.length}`,
+      hora: '18:00',
+      tipo: 'resumo',
+      ativo: true,
+    });
+    renderAvisosHorarios();
+  });
+}
+if ($avisosHorariosLista) {
+  $avisosHorariosLista.addEventListener('click', e => {
+    const btnDel = e.target.closest('[data-del-horario]');
+    if (btnDel) {
+      sincronizarCamposAvisosLocais();
+      const idx = Number(btnDel.getAttribute('data-del-horario'));
+      _horariosAvisos.splice(idx, 1);
+      renderAvisosHorarios();
+    }
+  });
+}
+if ($formAvisos) {
+  $formAvisos.addEventListener('submit', salvarConfigAvisos);
+}
+if ($btnAvisosPrevia) {
+  $btnAvisosPrevia.addEventListener('click', verPreviaAviso);
+}
+if ($btnFecharPrevia) {
+  $btnFecharPrevia.addEventListener('click', () => {
+    if ($avisoPreviaCaixa) $avisoPreviaCaixa.hidden = true;
+  });
+}
+if ($btnAvisosTeste) {
+  $btnAvisosTeste.addEventListener('click', enviarTesteAviso);
+}
+if ($btnRecarregarLog) {
+  $btnRecarregarLog.addEventListener('click', carregarLogAvisos);
 }
 
 document.getElementById('pj-abrir').addEventListener('click', async e => {

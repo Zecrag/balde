@@ -140,37 +140,85 @@ export function rotuloPrazo(prazo, agora = new Date()) {
 }
 
 /**
- * GB-51: Formatação do prazo do projeto / cliente:
- * - "atrasado N d" se n < 0
- * - "vence hoje" se n === 0
- * - "faltam N d" se n > 0
- * - null se não há prazo
- *
- * Classes de cor:
- * - 'atrasado' (vermelho discreto) quando n < 0
- * - 'amarelo' (amarelo discreto) quando faltarem até 3 dias (0 <= n <= 3)
- * - '' (normal / neutro discreto) quando n > 3
+ * GB-51 / GB-60: Formatação do prazo do projeto / cliente:
+ * - "atrasada N d" se n < 0 (vermelho)
+ * - "vence hoje" se n === 0 (laranja)
+ * - "faltam N d" se 0 < n <= janelaDias (amarelo)
+ * - null se n > janelaDias (fora da janela: nada) ou se não há prazo
  */
-export function formatarPrazoProjeto(prazo, agora = new Date()) {
+export function formatarPrazoProjeto(prazo, janelaDias = 3, agora = new Date()) {
   if (!prazo) return null;
   const n = diasAteData(prazo, agora);
   if (n === null || !Number.isFinite(n)) return null;
 
-  let texto;
-  let classe = '';
-
   if (n < 0) {
-    texto = `atrasado ${-n} d`;
-    classe = 'atrasado';
+    const num = Math.abs(n);
+    return { tipo: 'atrasada', dias: num, texto: `atrasada ${num} d`, classe: 'atrasado' };
   } else if (n === 0) {
-    texto = 'vence hoje';
-    classe = 'amarelo';
-  } else {
-    texto = `faltam ${n} d`;
-    if (n <= 3) classe = 'amarelo';
+    return { tipo: 'hoje', dias: 0, texto: 'vence hoje', classe: 'laranja' };
+  } else if (n <= Number(janelaDias)) {
+    return { tipo: 'proxima', dias: n, texto: `faltam ${n} d`, classe: 'amarelo' };
+  }
+  return null;
+}
+
+/**
+ * GB-60: Formata a tag a partir do objeto pior vindo de /api/alertas:
+ * { tipo: 'atrasada' | 'hoje' | 'proxima', dias: N }
+ * Retorna { tipo, dias, texto, classe } ou null se fora da janela / inválido.
+ */
+export function formatarPiorTag(pior, janelaDias = 3) {
+  if (!pior || !pior.tipo) return null;
+  const dias = Number(pior.dias);
+  if (pior.tipo === 'atrasada' || pior.tipo === 'atrasado') {
+    const num = Math.abs(Number.isFinite(dias) && dias !== 0 ? dias : 1);
+    return { tipo: 'atrasada', dias: num, texto: `atrasada ${num} d`, classe: 'atrasado' };
+  }
+  if (pior.tipo === 'hoje') {
+    return { tipo: 'hoje', dias: 0, texto: 'vence hoje', classe: 'laranja' };
+  }
+  if (pior.tipo === 'proxima' || pior.tipo === 'proximo') {
+    if (Number.isFinite(dias) && dias > 0 && dias <= Number(janelaDias)) {
+      return { tipo: 'proxima', dias, texto: `faltam ${dias} d`, classe: 'amarelo' };
+    }
+    return null;
+  }
+  return null;
+}
+
+/**
+ * GB-60: Calcula o pior prazo de uma lista de prazos (tarefas ou projeto):
+ * Prioridade: atrasada (maior atraso) > vence hoje > faltam N d (menor dias, dentro da janela).
+ * Fora da janela: null.
+ */
+export function calcularPiorPrazo(prazos = [], janelaDias = 3, agora = new Date()) {
+  const lista = (prazos || [])
+    .map(p => {
+      const d = diasAteData(p, agora);
+      return d !== null && Number.isFinite(d) ? d : null;
+    })
+    .filter(n => n !== null);
+
+  if (!lista.length) return null;
+
+  const atrasadas = lista.filter(n => n < 0);
+  if (atrasadas.length) {
+    const maxAtraso = Math.max(...atrasadas.map(n => Math.abs(n)));
+    return { tipo: 'atrasada', dias: maxAtraso, texto: `atrasada ${maxAtraso} d`, classe: 'atrasado' };
   }
 
-  return { texto, classe, dias: n };
+  const hoje = lista.filter(n => n === 0);
+  if (hoje.length) {
+    return { tipo: 'hoje', dias: 0, texto: 'vence hoje', classe: 'laranja' };
+  }
+
+  const proximas = lista.filter(n => n > 0 && n <= Number(janelaDias));
+  if (proximas.length) {
+    const minDias = Math.min(...proximas);
+    return { tipo: 'proxima', dias: minDias, texto: `faltam ${minDias} d`, classe: 'amarelo' };
+  }
+
+  return null;
 }
 
 /**

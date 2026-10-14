@@ -33,8 +33,12 @@ const EXCLUIR = [
   '.overclock-app',
   '.agents',
   '.gemini',
+  '.codex',
   '.exportar-proibidos'
 ];
+
+// Config e histórico dos avisos têm os números do dono: fora em qualquer pasta, não só em dados/.
+const EXCLUIR_NOMES = new Set(['config-avisos.json', 'avisos.jsonl', 'avisos-estado.json']);
 
 function deveCopiar(srcPath, destPath) {
   const relPath = path.relative(PROJETO_ROOT, srcPath);
@@ -43,6 +47,9 @@ function deveCopiar(srcPath, destPath) {
     if (relPath === exc || relPath.startsWith(exc + path.sep)) {
       return false;
     }
+  }
+  if (EXCLUIR_NOMES.has(path.basename(relPath))) {
+    return false;
   }
   // Remove também a sessão do Baileys, que fica dentro da pasta dele
   if (relPath.includes('auth_info_baileys')) {
