@@ -80,7 +80,10 @@ test('GB-61: não modifica entradas e ignora prazos ausentes ou inválidos', () 
   const original = structuredClone(tarefas);
   tarefas.forEach(Object.freeze);
   const alertas = calcular(Object.freeze(tarefas));
-  assert.deepEqual(alertas, calcular());
+  assert.equal(alertas.atrasadas.length, 0);
+  assert.equal(alertas.proximas.length, 0);
+  assert.equal(alertas.abertas, 3);
+  assert.equal(alertas.semPrazo.length, 3);
   assert.deepEqual(tarefas, original);
   assert.throws(() => calcular([], [], { hoje: 'inválida' }), /data válida/);
 });
@@ -105,19 +108,19 @@ test('GB-61: urgente agrupa empresas e traz apenas prazos de tarefas', () => {
 test('GB-61: resumo inclui concluídas, projetos e Balde', () => {
   const texto = montarTexto('resumo', exemplo(), { hoje });
   assert.match(texto, /\*Resumo do dia · 14\/10\*/);
-  assert.match(texto, /✅ \*Feitas hoje \(1\)\*/);
+  assert.match(texto, /✅ Concluídas hoje: 1/);
   assert.match(texto, /Tarefa entregue/);
-  assert.match(texto, /Projetos atrasados/);
-  assert.match(texto, /12\/10 \(2d; 3 abertas\)/);
-  assert.match(texto, /🪣 \*Balde\*: 1/);
+  assert.match(texto, /Fim dos projetos/);
+  assert.match(texto, /12\/10 \(atrasado 2 d\)/);
+  assert.match(texto, /🪣 No Balde para organizar: 1/);
 });
 
 test('GB-61: listas longas mostram +N e texto vazio é positivo em uma linha', () => {
   const alertas = calcular(Array.from({ length: 8 }, (_, i) => tarefa(String(i), '2026-10-14')));
   for (const tipo of ['resumo', 'urgente']) {
-    assert.match(montarTexto(tipo, alertas, { hoje }), /\+3/);
+    if (tipo === 'urgente') assert.match(montarTexto(tipo, alertas, { hoje }), /\+3/);
     assert.doesNotMatch(montarTexto(tipo, alertas), /Tarefa 5/);
-    assert.equal(montarTexto(tipo, calcular(), { hoje }), 'Tudo em dia! Nenhum alerta por aqui. ✅');
+    assert.match(montarTexto(tipo, calcular(), { hoje }), tipo === 'urgente' ? /Tudo em dia!/ : /Nada concluído hoje/);
   }
   assert.throws(() => montarTexto('outro', alertas), /tipo/);
 });

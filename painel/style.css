@@ -1901,3 +1901,6 @@ main {
   text-align: center;
   padding: 8px;
 }
+
+/* GB-63: prazo à esquerda, valor como último item à direita. */
+.gp-valores { margin-left: auto; display: inline-flex; align-items: center; gap: var(--sp-2); }

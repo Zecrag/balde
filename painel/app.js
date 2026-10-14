@@ -486,8 +486,8 @@ function render() {
     const etiquetaCliente = tagInfoCliente ? `<span class="etiqueta-prazo ${tagInfoCliente.classe}" title="Prazo">${esc(tagInfoCliente.texto)}</span>` : '';
 
     const htmlValores = [
-      info ? `<span class="ge-ganho" title="Ganho total da empresa (soma dos projetos ativos)">${fmtGanho(info.ganhoTotal)}</span>` : '',
       etiquetaCliente,
+      info ? `<span class="ge-ganho" title="Ganho total da empresa (soma dos projetos ativos)">${fmtGanho(info.ganhoTotal)}</span>` : '',
     ].filter(Boolean).join('');
 
     const ehBaldeEmpresa = String(empresa ?? '').trim().toLowerCase() === 'balde';
@@ -540,13 +540,12 @@ function render() {
           ${tagsBlocoProjeto}
           <span class="gp-conta" title="Tarefas abertas">${ativas.length}</span>
           ${p?.tipo ? `<span class="chip chip-tipo-${esc(p.tipo)}">${esc(p.tipo)}</span>` : ''}
-          <span class="gp-ganho" title="Ganho total do projeto">${p?.ganho ? fmtGanho(p.ganho) : 'sem ganho'}</span>
-          ${etiquetaProj}
           ${periodoProjeto(p)}
           ${botaoLerGrupo(empresa, projeto, p)}
           ${projetoNoGrupos(empresa, projeto) ? `<button class="btn btn-ghost btn-sm gp-encerrar" type="button"
               data-arquivar-empresa="${esc(empresa)}" data-arquivar-projeto="${esc(projeto)}"
               aria-label="Encerrar o projeto ${esc(empresa)} · ${esc(projeto)}" title="Encerrar e arquivar o projeto">${ICONE.arquivar} Encerrar</button>` : ''}
+          <span class="gp-valores">${etiquetaProj}<span class="gp-ganho" title="Ganho total do projeto">${p?.ganho ? fmtGanho(p.ganho) : 'sem ganho'}</span></span>
         </h3>`;
       html += ativas.map(renderTarefa).join('');
       if (!ativas.length && !feitas.length) html += `<p class="gp-vazio">Sem tarefas. Arraste um card para cá.</p>`;
