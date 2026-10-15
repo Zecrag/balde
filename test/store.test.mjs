@@ -38,3 +38,17 @@ test('salvarContexto com chatId ../ lança e não escreve fora de dados/', () =>
     fs.rmSync(raiz, { recursive: true, force: true });
   }
 });
+
+test('GB-21: migra empresa vazia para Balde e persiste sem perder fontes', () => {
+  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'balde-migracao-'));
+  try {
+    const store = criarStore(raiz);
+    const originais = ['', '(sem empresa)', '?'].map((empresa, i) => ({ id: String(i), empresa, projeto: '', fontes: ['m1'] }));
+    store.salvarTarefas(originais);
+    const tarefas = store.lerTarefas();
+    assert.ok(tarefas.every(t => t.empresa === 'Balde' && t.projeto === 'Balde'));
+    assert.deepEqual(tarefas.map(t => t.fontes), originais.map(t => t.fontes));
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(raiz, 'dados/tarefas.json'))), tarefas);
+    assert.deepEqual(store.lerTarefas(), tarefas);
+  } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
+});

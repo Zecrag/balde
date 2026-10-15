@@ -70,6 +70,18 @@ describe('motor com LLM — 3 provedores', () => {
   beforeEach(() => { ctx = novoStore(); });
   afterEach(() => rmSync(ctx.dir, { recursive: true, force: true }));
 
+  for (const prazo of [null, 'até dia 20 no máximo']) {
+    it(`GB-21: prazo explícito com LLM mockado (${prazo})`, async () => {
+      const { opcoes } = opcoesLLM('openai', { tarefas: [{ titulo: 'Cancelar X', prazo, nota: 'até dia 20 no máximo' }] });
+      const r = await processar(msg('Cancelar X até dia 20 no máximo', { ts: '2026-10-13T12:00:00Z' }), ctx.store, opcoes);
+      assert.equal(r.novas[0].prazo, '2026-10-20');
+    });
+  }
+  it('GB-21: fallback local preserva até dia N', async () => {
+    const r = await processar(msg('Preciso cancelar X até dia 20 no máximo', { ts: '2026-10-13T12:00:00Z' }), ctx.store, SEM_LLM);
+    assert.equal(r.novas[0].prazo, '2026-10-20');
+  });
+
   for (const provedor of ['anthropic', 'openai', 'gemini']) {
     it(`${provedor}: cria tarefa com etapa/proximoPasso e depois atualiza a mesma (sem duplicar)`, async () => {
       const { opcoes, chamadas } = opcoesLLM(provedor,

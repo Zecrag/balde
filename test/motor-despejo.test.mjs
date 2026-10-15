@@ -84,7 +84,7 @@ describe('GB-36 — detectarMencao', () => {
     assert.equal(detectarMencao('material do site da Xptqz', EMPRESAS), null);
     for (const t of ['#5OX', 'cliente: Kç', 'material do site da Fulano']) {
       const { destino } = rotearDespejo({ texto: t, ts: new Date(T0).toISOString() }, null, PROJETOS);
-      assert.ok(['Alice · Pessoal', 'Exemplo · Administrativo'].includes(`${destino.empresa} · ${destino.projeto}`), t);
+      assert.ok(['Balde · Balde', 'Exemplo · Administrativo'].includes(`${destino.empresa} · ${destino.projeto}`), t);
     }
   });
 
@@ -98,12 +98,12 @@ describe('GB-36 — detectarMencao', () => {
 describe('GB-36 — rotearDespejo', () => {
   const m = (texto, minutos) => ({ texto, ts: new Date(T0 + minutos * 60_000).toISOString() });
 
-  it('administrativo → Exemplo · Administrativo; sem pista → Alice · Pessoal', () => {
+  it('administrativo → Exemplo · Administrativo; sem pista → Balde · Balde', () => {
     assert.deepEqual(
       [rotearDespejo(m('emitir boleto e nota fiscal', 0), null, PROJETOS).destino].map(d => `${d.empresa} · ${d.projeto}`),
       ['Exemplo · Administrativo']);
     const p = rotearDespejo(m('comprar ração do cachorro', 0), null, PROJETOS);
-    assert.equal(`${p.destino.empresa} · ${p.destino.projeto}`, 'Alice · Pessoal');
+    assert.equal(`${p.destino.empresa} · ${p.destino.projeto}`, 'Balde · Balde');
     assert.equal(p.fixo, null);
   });
 
@@ -118,7 +118,7 @@ describe('GB-36 — rotearDespejo', () => {
 
     // Passou de 30 min → perde o contexto
     const tarde = rotearDespejo(m('ajustar o menu', 31), fixo, PROJETOS);
-    assert.equal(tarde.destino.empresa, 'Alice');
+    assert.equal(tarde.destino.empresa, 'Balde');
 
     // Nova menção troca o contexto
     const outra = rotearDespejo(m('anúncios da Delta', 6), fixo, PROJETOS);
@@ -127,7 +127,7 @@ describe('GB-36 — rotearDespejo', () => {
 
     // Menção a cliente sem cadastro encerra o contexto e não cria empresa
     const nova = rotearDespejo(m('cliente: Nova Loja', 8), outra.fixo, PROJETOS);
-    assert.equal(`${nova.destino.empresa} · ${nova.destino.projeto}`, 'Alice · Pessoal');
+    assert.equal(`${nova.destino.empresa} · ${nova.destino.projeto}`, 'Balde · Balde');
     assert.equal(nova.destino.clienteSugerido, 'Nova Loja');
     assert.equal(nova.fixo, null);
   });
@@ -139,7 +139,7 @@ describe('GB-36 — rotearDespejo', () => {
       assert.equal(r.destino.empresa, 'Acme', `mensagem ${i}`);
       fixo = r.fixo;
     }
-    assert.equal(rotearDespejo(m('item 11', 11), fixo, PROJETOS).destino.empresa, 'Alice');
+    assert.equal(rotearDespejo(m('item 11', 11), fixo, PROJETOS).destino.empresa, 'Balde');
   });
 });
 
@@ -160,9 +160,9 @@ describe('GB-36 — motor no grupo despejo', () => {
     assert.deepEqual(destinos, [
       'Acme · Site',
       'Acme · Site',
-      'Alice · Pessoal [Arutech]',
+      'Balde · Balde [Arutech]',
       'Exemplo · Administrativo',
-      'Alice · Pessoal',
+      'Balde · Balde',
     ]);
     const arutech = ctx.store.lerTarefas()[2];
     assert.equal(arutech.sugerirCriar, undefined);
@@ -204,7 +204,7 @@ describe('GB-36 — texto ilegível não vira pista', () => {
   it('PDF extraído como binário cru é ignorado; #tag precisa ser palavra', () => {
     const lixo = 'stream x\u0000\u0001#kç×ße\u0015 obj #5OX¸Ä endobj '.repeat(40);
     const r = rotearDespejo({ texto: lixo, ts: new Date(T0).toISOString() }, null, PROJETOS);
-    assert.equal(`${r.destino.empresa} · ${r.destino.projeto}`, 'Alice · Pessoal');
+    assert.equal(`${r.destino.empresa} · ${r.destino.projeto}`, 'Balde · Balde');
     assert.equal(detectarMencao('preço R$10 #5OX', EMPRESAS), null);
     assert.equal(detectarMencao('anota isso #acme.', EMPRESAS).empresa, 'Acme');
   });

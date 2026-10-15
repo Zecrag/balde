@@ -389,6 +389,7 @@ function paresMover() {
     if (!vistos.has(k)) { vistos.add(k); pares.push({ empresa, projeto }); }
   };
   for (const { empresa, projeto } of _paresGrupos) add(empresa, projeto);
+  for (const e of _empresas) for (const p of e.projetos) add(e.empresa, p.projeto);
   for (const empresa of [...new Set(_paresGrupos.map(p => p.empresa))]) add(empresa, PROJETO_AVULSO);
   return pares;
 }
@@ -534,7 +535,7 @@ function render() {
         ? _blocosPendentes.map(b => `<span class="tag-bloco-aberto" title="Bloco aberto: ${esc(b.cliente)} (${b.mensagens} msgs)">bloco aberto: ${esc(b.cliente)}</span>`).join('')
         : '';
 
-      html += `<div class="grupo-projeto" aria-label="Projeto ${esc(projeto)}">
+      html += `<div class="grupo-projeto" aria-label="Projeto ${esc(projeto)}" data-drop-empresa="${esc(empresa)}" data-drop-projeto="${esc(projeto)}">
         <h3 class="grupo-projeto-titulo" data-drop-empresa="${esc(empresa)}" data-drop-projeto="${esc(projeto)}">
           <span class="gp-nome">${esc(projeto)}</span>
           ${tagsBlocoProjeto}

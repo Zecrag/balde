@@ -15,6 +15,7 @@ const GRUPOS = `| Empresa | Projeto | Link do grupo | Ganho R$/mês | Início | 
 |---|---|---|---|---|---|---|
 | Acme | Site | 120363000000000001@g.us | 1.000,00 | | | cliente |
 | Acme | App | 120363000000000002@g.us | | | | cliente |
+| Solo | Pessoal | | | | | cliente |
 | Beta | API | 120363000000000003@g.us | | | | cliente |
 `;
 
@@ -69,6 +70,23 @@ describe('PATCH /api/tarefas/:id — mover (GB-32)', () => {
   });
 
   const nova = id => store.atualizarTarefa(id, { empresa: 'Acme', projeto: 'Site', titulo: 'x', estado: 'pronta', fontes, chatId: 'chat-acme' });
+
+
+  it('GB-21: projeto criado no painel sem grupo recebe tarefa', async () => {
+    await nova('sem-grupo');
+    const { status, body } = await patch(server, 'sem-grupo', { empresa: 'Solo', projeto: 'Pessoal' });
+    assert.equal(status, 200);
+    assert.equal(body.tarefa.empresa, 'Solo');
+    assert.equal(body.tarefa.projeto, 'Pessoal');
+  });
+
+  it('GB-21: projeto existente no painel sem linha no GRUPOS recebe tarefa', async () => {
+    await store.atualizarTarefa('projeto-local', { empresa: 'Local', projeto: 'Pessoal', estado: 'pronta' });
+    await nova('mover-local');
+    const { status, body } = await patch(server, 'mover-local', { empresa: 'Local', projeto: 'Pessoal' });
+    assert.equal(status, 200);
+    assert.equal(body.tarefa.empresa, 'Local');
+  });
 
   it('par válido → move, grava movidaDe e mantém fontes', async () => {
     await nova('a1');
