@@ -995,7 +995,7 @@ main {
 /* Arrastar */
 .t-linha[draggable="true"] { cursor: grab; }
 .tarefa-compacta.arrastando { opacity: 0.45; }
-.arrastando-tarefa .grupo-projeto-titulo,
+.arrastando-tarefa .grupo-projeto,
 .arrastando-tarefa .ge-toggle,
 .arrastando-tarefa .nav-item { outline: 1px dashed rgba(124,138,171,0.35); outline-offset: 2px; }
 .drop-alvo, .arrastando-tarefa .drop-alvo {

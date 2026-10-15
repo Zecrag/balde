@@ -14,7 +14,7 @@
  * - Modal "Distribuir" lista os destinos reais do DESTINOS.md e chama POST /:id/distribuir { nome }.
  * - GB-32: clicar na empresa recolhe/expande o bloco (lembrado em localStorage; ao abrir, todos
  *   recolhidos); barra lateral / chips para pular até a empresa; mover tarefa arrastando o card até
- *   o cabeçalho de outro projeto ou pelo seletor "Mover para…" (pares do GRUPOS.md + Avulso).
+ *   qualquer área de outro projeto, cliente ou pelo seletor "Mover para…" (pares do GRUPOS.md + Avulso).
  *   Dentro do projeto: Decidir → Falta info → Pra fazer → Fazendo; Feitas recolhidas no fim.
  * - GB-41: projeto interno (sem grupo); datas dd/mm/aa e ganho total com máscara; Encerrar/Reabrir
  *   projeto (PATCH /api/projetos/:chave) — arquivados vão para "Arquivados" (recolhida) com as tarefas.
@@ -889,14 +889,12 @@ async function moverTarefa(id, empresa, projeto) {
   }
 }
 
-// Arrastar: card → cabeçalho de projeto (move); → empresa/chip (move se ela tem um só projeto,
-// senão expande para mostrar os projetos).
+// Arrastar: projeto inteiro recebe o card; cliente/chip usa o primeiro projeto ativo.
 let _expandirTimer = null;
 function alvoDrop(el) { return el?.closest?.('[data-drop-empresa]') ?? null; }
 function projetoDoAlvo(alvo) {
   if (alvo.dataset.dropProjeto) return alvo.dataset.dropProjeto;
-  const projetos = [...new Set(_paresGrupos.filter(p => p.empresa === alvo.dataset.dropEmpresa).map(p => p.projeto))];
-  return projetos.length === 1 ? projetos[0] : null;
+  return paresMover().find(p => p.empresa === alvo.dataset.dropEmpresa && p.projeto)?.projeto ?? null;
 }
 function limparDrop() {
   clearTimeout(_expandirTimer);
@@ -921,7 +919,7 @@ document.addEventListener('dragend', () => {
 document.addEventListener('dragover', e => {
   if (!_arrastando) return;
   const alvo = alvoDrop(e.target);
-  if (!alvo) return;
+  if (!alvo || !projetoDoAlvo(alvo)) { limparDrop(); return; }
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   if (alvo.classList.contains('drop-alvo')) return;
@@ -947,7 +945,7 @@ document.addEventListener('drop', async e => {
   const id = _arrastando;
   const projeto = projetoDoAlvo(alvo);
   limparDrop();
-  if (!projeto) { toast('Solte no cabeçalho de um projeto', 'erro'); return; }
+  if (!projeto) return;
   await moverTarefa(id, alvo.dataset.dropEmpresa, projeto);
 });
 
