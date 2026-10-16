@@ -93,6 +93,7 @@ let _blocosPendentes = [];
 
 // GB-60: Mini painel no topo & Avisos WhatsApp
 let _alertas = null;
+let _categoriaAlerta = null;
 let _configAvisos = null;
 let _janelaDias = 3;
 let _numerosAvisos = [];
@@ -244,7 +245,7 @@ function setSyncStatus(status, label) {
 async function fetchTarefas() {
   setSyncStatus('syncing', 'Atualizando…');
   try {
-    const [r, rg, rb, ra, rc] = await Promise.all([
+    let [r, rg, rb, ra, rc] = await Promise.all([
       fetch(`${API}/tarefas`),
       fetch(`${API}/config/grupos`).catch(() => null),
       fetch(`${API}/blocos/pendentes`).catch(() => null),
@@ -255,7 +256,7 @@ async function fetchTarefas() {
     const dados = await r.json();
     if (rg?.ok) {
       const { linhas = [] } = await rg.json();
-      _paresGrupos = linhas.filter(l => l.empresa && l.status !== 'arquivado').map(l => ({ empresa: l.empresa, projeto: l.projeto }));
+      _paresGrupos = linhas.filter(l => l.empresa && l.status !== 'arquivado').map(l => ({ empresa: l.empresa, projeto: l.projeto, tipo: l.tipo }));
     }
     if (rb?.ok) {
       _blocosPendentes = await rb.json();
@@ -268,7 +269,10 @@ async function fetchTarefas() {
       const cfg = await rc.json();
       _configAvisos = cfg;
       if (typeof cfg.janelaDias === 'number' && cfg.janelaDias > 0) {
-        _janelaDias = cfg.janelaDias;
+        if (_janelaDias !== cfg.janelaDias) {
+          _janelaDias = cfg.janelaDias;
+          ra = await fetch(`${API}/alertas?janela=${encodeURIComponent(_janelaDias)}`).catch(() => null);
+        }
       }
       if ($btnAvisos) $btnAvisos.hidden = false;
     } else {
@@ -279,7 +283,7 @@ async function fetchTarefas() {
     // GB-60: Alertas (esconde mini painel se rota não existir)
     if (ra?.ok) {
       _alertas = await ra.json();
-      renderMiniPainel();
+
     } else {
       _alertas = null;
       if ($miniPainelAlertas) $miniPainelAlertas.hidden = true;
@@ -287,6 +291,7 @@ async function fetchTarefas() {
 
     _tarefas = (dados.tarefas ?? []).filter(t => !t.arquivado);
     _tarefasArquivadas = (dados.tarefas ?? []).filter(t => t.arquivado);
+    renderMiniPainel();
     _empresas = dados.empresas ?? [];
     _arquivados = dados.arquivados ?? [];
     setSyncStatus('', `${_tarefas.length} tarefa${_tarefas.length !== 1 ? 's' : ''} · ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
@@ -1818,15 +1823,18 @@ function renderMiniPainel() {
   const venceHoje = Array.isArray(_alertas.venceHoje) ? _alertas.venceHoje : [];
   const proximas = Array.isArray(_alertas.proximas) ? _alertas.proximas : [];
   const balde = Number(_alertas.baldeParado ?? 0);
-  const projAtrasados = Array.isArray(_alertas.projetosAtrasados) ? _alertas.projetosAtrasados : [];
 
   if ($mpaCntAtrasadas) $mpaCntAtrasadas.textContent = atrasadas.length;
   if ($mpaCntHoje) $mpaCntHoje.textContent = venceHoje.length;
   if ($mpaCntProximas) $mpaCntProximas.textContent = proximas.length;
-  if ($mpaRotuloProximas) $mpaRotuloProximas.textContent = `próximos ${_janelaDias} dias`;
+  if ($mpaRotuloProximas) $mpaRotuloProximas.textContent = `próximas · ${_janelaDias} ${_janelaDias === 1 ? 'dia' : 'dias'}`;
   if ($mpaCntBalde) $mpaCntBalde.textContent = balde;
 
-  renderConteudoPainelzinho({ atrasadas, venceHoje, proximas, projetosAtrasados: projAtrasados, balde });
+  const contagens = { atrasadas: atrasadas.length, venceHoje: venceHoje.length, proximas: proximas.length, balde };
+  for (const btn of $mpaFaixa.querySelectorAll('[data-alerta]')) btn.hidden = !(contagens[btn.dataset.alerta] >= 1);
+  $miniPainelAlertas.hidden = !Object.values(contagens).some(n => n >= 1);
+  if (!contagens[_categoriaAlerta]) fecharPainelzinhoAlertas();
+  if (_categoriaAlerta) renderCategoriaAlerta();
 }
 
 function renderConteudoPainelzinho({ atrasadas, venceHoje, proximas, projetosAtrasados, balde }) {
@@ -1922,26 +1930,25 @@ function renderConteudoPainelzinho({ atrasadas, venceHoje, proximas, projetosAtr
   $mpaPainelzinhoConteudo.innerHTML = html;
 }
 
-function alternarPainelzinhoAlertas() {
-  if (!$mpaPainelzinho) return;
-  const aberto = !$mpaPainelzinho.hidden;
-  if (aberto) {
-    fecharPainelzinhoAlertas();
+function renderCategoriaAlerta() {
+  const listas = { atrasadas: [], venceHoje: [], proximas: [], projetosAtrasados: [], balde: 0 };
+  if (_categoriaAlerta === 'balde') {
+    const tarefas = _tarefas.filter(t => !['feita', 'descartada'].includes(t.estado) && (
+      String(t.empresa).trim().toLowerCase() === 'balde' || String(t.projeto).trim().toLowerCase() === 'despejo' ||
+      _paresGrupos.some(p => p.tipo === 'despejo' && p.empresa === t.empresa && p.projeto === t.projeto)));
+    $mpaPainelzinhoConteudo.innerHTML = tarefas.map(t => `<button class="mpa-item" type="button" data-nav-tarefa="${esc(t.id)}" data-empresa="${esc(t.empresa || '')}">${esc(t.titulo || '(sem título)')}</button>`).join('');
   } else {
-    abrirPainelzinhoAlertas();
+    listas[_categoriaAlerta] = _alertas?.[_categoriaAlerta] ?? [];
+    renderConteudoPainelzinho(listas);
   }
-}
-
-function abrirPainelzinhoAlertas() {
-  if (!$mpaPainelzinho) return;
-  $mpaPainelzinho.hidden = false;
-  if ($mpaFaixa) $mpaFaixa.setAttribute('aria-expanded', 'true');
+  $mpaPainelzinho.querySelector('.mpa-painelzinho-titulo').textContent = { atrasadas: 'Atrasadas', venceHoje: 'Vencem hoje', proximas: 'Próximas', balde: 'No Balde' }[_categoriaAlerta];
 }
 
 function fecharPainelzinhoAlertas() {
   if (!$mpaPainelzinho) return;
   $mpaPainelzinho.hidden = true;
-  if ($mpaFaixa) $mpaFaixa.setAttribute('aria-expanded', 'false');
+  _categoriaAlerta = null;
+  $mpaFaixa?.querySelectorAll('[data-alerta]').forEach(btn => btn.setAttribute('aria-expanded', 'false'));
 }
 
 function navegarParaTarefa(id, empresa) {
@@ -1979,15 +1986,34 @@ function navegarParaProjeto(empresa, projeto) {
 if ($mpaFaixa) {
   $mpaFaixa.addEventListener('click', e => {
     e.stopPropagation();
-    alternarPainelzinhoAlertas();
+    const btn = e.target.closest('[data-alerta]');
+    if (!btn) return;
+    const categoria = btn.dataset.alerta;
+    const fechar = _categoriaAlerta === categoria && !$mpaPainelzinho.hidden;
+    fecharPainelzinhoAlertas();
+    if (!fechar) {
+      _categoriaAlerta = categoria;
+      renderCategoriaAlerta();
+      $mpaPainelzinho.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+    }
   });
 }
 if ($mpaBtnFechar) {
   $mpaBtnFechar.addEventListener('click', e => {
     e.stopPropagation();
+    const btn = $mpaFaixa.querySelector('[aria-expanded="true"]');
     fecharPainelzinhoAlertas();
+    btn?.focus();
   });
 }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$mpaPainelzinho.hidden) {
+    const btn = $mpaFaixa.querySelector('[aria-expanded="true"]');
+    fecharPainelzinhoAlertas();
+    btn?.focus();
+  }
+});
 if ($mpaPainelzinhoConteudo) {
   $mpaPainelzinhoConteudo.addEventListener('click', e => {
     const btnTarefa = e.target.closest('[data-nav-tarefa]');

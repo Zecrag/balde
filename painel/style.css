@@ -18,6 +18,7 @@
   --text-dim:    #4a5568;
 
   /* Urgência */
+  --alerta-proxima: #facc15;
   --u-critical:  #ef4444; /* 80-100 */
   --u-high:      #f59e0b; /* 60-79  */
   --u-mid:       #3b82f6; /* 40-59  */
@@ -956,7 +957,8 @@ main {
 
 @media (min-width: 1024px) {
   .tarefas-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--sp-4); padding: 0 var(--sp-4); }
-  .nav-empresas { position: sticky; top: 57px; align-self: start; max-height: calc(100vh - 57px); overflow-y: auto; padding: var(--sp-5) 0; }
+  .tarefas-lateral { position: sticky; top: 57px; align-self: start; max-height: calc(100vh - 57px); overflow-y: auto; padding: var(--sp-5) 0; }
+  .tarefas-lateral .nav-empresas { padding: 0; }
   .nav-titulo { display: block; }
   .nav-lista { flex-direction: column; overflow: visible; gap: 2px; }
   .nav-item { width: 100%; justify-content: space-between; border-radius: 6px; border-color: transparent; background: none; }
@@ -1525,66 +1527,26 @@ main {
 .mini-painel-alertas[hidden] {
   display: none !important;
 }
-.mpa-faixa {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
-  color: var(--text);
-  font-family: inherit;
-  font-size: var(--ts-sm);
-  cursor: pointer;
-  text-align: left;
-  transition: background var(--dur-micro) ease, border-color var(--dur-micro) ease;
-}
-.mpa-faixa:hover {
-  background: #1c2333;
-  border-color: rgba(255, 255, 255, 0.15);
-}
-.mpa-contadores {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.4;
-}
+.tarefas-lateral { min-width: 0; }
+.mpa-contadores { display: flex; flex-direction: column; gap: var(--sp-1); }
 .mpa-contador {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-weight: 500;
-  font-size: 13px;
+  display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 44px;
+  padding: var(--sp-2) var(--sp-3); border: 0; border-radius: 6px;
+  background: transparent; color: var(--text); font: inherit; font-size: var(--ts-sm);
+  text-align: left; cursor: pointer;
 }
-.mpa-contador strong {
-  font-weight: 700;
-}
-.mpa-bolinha {
-  font-size: 13px;
-  line-height: 1;
-}
-.mpa-sep {
-  color: var(--text-dim);
-  user-select: none;
-}
-.mpa-seta {
-  display: flex;
-  align-items: center;
-  color: var(--text-muted);
-  transition: transform var(--dur-short) ease;
-  flex-shrink: 0;
-}
-.mpa-faixa[aria-expanded="true"] .mpa-seta {
-  transform: rotate(180deg);
-}
+.mpa-contador[hidden] { display: none; }
+.mpa-contador:hover, .mpa-contador[aria-expanded="true"] { background: var(--bg-card); }
+.mpa-contador:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mpa-contador strong { margin-left: auto; font-variant-numeric: tabular-nums; }
+.mpa-bolinha { width: 10px; height: 10px; flex-shrink: 0; border-radius: 50%; background: var(--text-muted); }
+.mpa-atrasadas .mpa-bolinha { background: var(--u-critical); }
+.mpa-hoje .mpa-bolinha { background: var(--u-high); }
+.mpa-proximas .mpa-bolinha { background: var(--alerta-proxima); }
+@media (max-width: 1023px) { .mini-painel-alertas { margin: var(--sp-2) var(--sp-3); } }
 .mpa-painelzinho {
-  position: absolute;
-  top: calc(100% + 4px);
+  position: relative;
+  top: 0;
   left: 0;
   right: 0;
   z-index: var(--z-above);

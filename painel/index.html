@@ -33,43 +33,6 @@
 </nav>
 
 <div id="view-tarefas" role="tabpanel" aria-labelledby="aba-tarefas">
-<!-- ── Mini painel no topo (GB-60) ────────────────────────── -->
-<aside class="mini-painel-alertas" id="mini-painel-alertas" hidden>
-  <button class="mpa-faixa" id="mpa-faixa" type="button" aria-expanded="false" aria-controls="mpa-painelzinho" aria-label="Alertas de prazos">
-    <div class="mpa-contadores">
-      <span class="mpa-contador mpa-atrasadas" title="Tarefas atrasadas">
-        <span class="mpa-bolinha" aria-hidden="true">🔴</span> atrasadas <strong id="mpa-cnt-atrasadas">0</strong>
-      </span>
-      <span class="mpa-sep" aria-hidden="true">·</span>
-      <span class="mpa-contador mpa-hoje" title="Tarefas que vencem hoje">
-        <span class="mpa-bolinha" aria-hidden="true">🟠</span> vence hoje <strong id="mpa-cnt-hoje">0</strong>
-      </span>
-      <span class="mpa-sep" aria-hidden="true">·</span>
-      <span class="mpa-contador mpa-proximas" title="Tarefas com prazo próximo">
-        <span class="mpa-bolinha" aria-hidden="true">🟡</span> <span id="mpa-rotulo-proximas">próximos 3 dias</span> <strong id="mpa-cnt-proximas">0</strong>
-      </span>
-      <span class="mpa-sep" aria-hidden="true">·</span>
-      <span class="mpa-contador mpa-balde" title="Tarefas acumuladas no Balde">
-        <span class="mpa-bolinha" aria-hidden="true">🪣</span> no Balde <strong id="mpa-cnt-balde">0</strong>
-      </span>
-    </div>
-    <span class="mpa-seta" aria-hidden="true">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-    </span>
-  </button>
-  <div class="mpa-painelzinho" id="mpa-painelzinho" hidden aria-label="Lista curta agrupada de alertas">
-    <div class="mpa-painelzinho-topo">
-      <span class="mpa-painelzinho-titulo">Alertas de prazos</span>
-      <button class="btn btn-ghost btn-icone" id="mpa-btn-fechar" type="button" aria-label="Fechar lista de alertas">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="mpa-painelzinho-conteudo" id="mpa-painelzinho-conteudo" aria-live="polite">
-      <!-- preenchido dinamicamente por JS -->
-    </div>
-  </div>
-</aside>
-
 <!-- ── Leitura do WhatsApp (GB-45) ───────────────────────── -->
 <section class="leitura-barra" aria-label="Leitura do WhatsApp">
   <span class="tag-leitura" id="tag-leitura" title="Quando o Balde leu os grupos pela última vez e quanto custou">Última leitura –</span>
@@ -120,7 +83,30 @@
 
 <div class="tarefas-layout">
   <!-- ── Navegação rápida: barra lateral (desktop) / chips (celular) ── -->
+  <div class="tarefas-lateral">
+<!-- ── Mini painel no topo (GB-60) ────────────────────────── -->
+<aside class="mini-painel-alertas" id="mini-painel-alertas" hidden>
+  <div class="mpa-contadores" id="mpa-faixa">
+    <button class="mpa-contador mpa-atrasadas" type="button" data-alerta="atrasadas" aria-expanded="false" aria-controls="mpa-painelzinho" hidden><span class="mpa-bolinha" aria-hidden="true"></span> atrasadas <strong id="mpa-cnt-atrasadas">0</strong></button>
+    <button class="mpa-contador mpa-hoje" type="button" data-alerta="venceHoje" aria-expanded="false" aria-controls="mpa-painelzinho" hidden><span class="mpa-bolinha" aria-hidden="true"></span> vencem hoje <strong id="mpa-cnt-hoje">0</strong></button>
+    <button class="mpa-contador mpa-proximas" type="button" data-alerta="proximas" aria-expanded="false" aria-controls="mpa-painelzinho" hidden><span class="mpa-bolinha" aria-hidden="true"></span> <span id="mpa-rotulo-proximas">próximas · 3 dias</span> <strong id="mpa-cnt-proximas">0</strong></button>
+    <button class="mpa-contador mpa-balde" type="button" data-alerta="balde" aria-expanded="false" aria-controls="mpa-painelzinho" hidden><span class="mpa-bolinha" aria-hidden="true"></span> no Balde <strong id="mpa-cnt-balde">0</strong></button>
+  </div>
+  <div class="mpa-painelzinho" id="mpa-painelzinho" hidden aria-label="Lista curta agrupada de alertas">
+    <div class="mpa-painelzinho-topo">
+      <span class="mpa-painelzinho-titulo">Alertas de prazos</span>
+      <button class="btn btn-ghost btn-icone" id="mpa-btn-fechar" type="button" aria-label="Fechar lista de alertas">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="mpa-painelzinho-conteudo" id="mpa-painelzinho-conteudo" aria-live="polite">
+      <!-- preenchido dinamicamente por JS -->
+    </div>
+  </div>
+</aside>
+
   <nav class="nav-empresas" id="nav-empresas" aria-label="Ir para cliente"></nav>
+  </div>
 
   <!-- ── Conteúdo principal ─────────────────────────────────── -->
   <main id="main" role="main" aria-label="Lista de tarefas">
