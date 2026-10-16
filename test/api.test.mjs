@@ -441,4 +441,21 @@ describe('API Balde', () => {
       assert.equal(status, 404);
     });
   });
+  it('checklist: PATCH valida, marca só um item e GET preserva', async () => {
+    store._db.set('checklist', { id: 'checklist', empresa: 'Acme', projeto: 'Site', estado: 'pronta', subitens: [{ texto: 'Revisar títulos', feito: false }, { texto: 'Conferir links', feito: false }] });
+    const patch = body => req(server, { method: 'PATCH', path: '/api/tarefas/checklist' }, body);
+    assert.equal((await patch({ subitens: [{ texto: '', feito: false }] })).status, 400);
+    assert.equal((await patch({ subitem: { indice: 0, texto: 'Texto antigo', feito: true } })).status, 409);
+    assert.equal((await patch({ subitem: { indice: 0, texto: 'Revisar títulos', feito: 'true' } })).status, 400);
+    assert.equal((await patch({ subitem: { indice: 0, texto: 'Revisar títulos', feito: true } })).status, 200);
+    const resposta = await req(server, { method: 'GET', path: '/api/tarefas' });
+    const tarefa = resposta.body.tarefas.find(t => t.id === 'checklist');
+    assert.equal(tarefa.subitens[0].feito, true);
+    assert.equal(tarefa.subitens[1].feito, false);
+    assert.equal(tarefa.estado, 'pronta');
+    const respostas = await Promise.all([patch({ subitem: { indice: 0, texto: 'Revisar títulos', feito: false } }), patch({ subitem: { indice: 1, texto: 'Conferir links', feito: true } })]);
+    assert.ok(respostas.every(r => r.status === 200));
+    assert.deepEqual(store._db.get('checklist').subitens.map(s => s.feito), [false, true]);
+  });
+
 });

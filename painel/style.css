@@ -1904,3 +1904,20 @@ main {
 
 /* GB-63: prazo à esquerda, valor como último item à direita. */
 .gp-valores { margin-left: auto; display: inline-flex; align-items: center; gap: var(--sp-2); }
+
+/* Checklist da mesma entrega: acompanha a nota, sem competir com o título. */
+.t-subitens { border: 0; margin: var(--sp-3) 0; min-width: 0; }
+.t-subitens legend { font-size: var(--ts-sm); font-weight: 600; color: var(--text); }
+.t-subitem { display: flex; align-items: center; gap: var(--sp-3); min-height: 44px; padding: var(--sp-1) var(--sp-2); cursor: pointer; border-radius: var(--sp-1); }
+.t-subitem:hover { background: var(--bg-input); }
+.t-subitem input { flex: 0 0 auto; width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+.t-subitem input:focus-visible { outline: 2px solid var(--accent-h); outline-offset: 4px; }
+.t-subitem input:disabled { cursor: wait; }
+.t-subitem span { overflow-wrap: anywhere; }
+.t-subitem.concluido span { text-decoration: line-through; }
+.t-subitens-conta { font-size: var(--ts-xs); font-variant-numeric: tabular-nums; }
+.subitem-status { min-height: 1.5em; font-size: var(--ts-sm); color: var(--text); }
+.tarefa-concluida > .t-subitens { margin-inline: var(--sp-4); }
+.t-subitens:has(input:disabled) .subitem-status::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: var(--sp-2); border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: subitem-salvando 800ms linear infinite; }
+@keyframes subitem-salvando { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .t-subitens:has(input:disabled) .subitem-status::before { animation: none; } }

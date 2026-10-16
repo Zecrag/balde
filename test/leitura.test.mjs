@@ -356,3 +356,20 @@ describe('GB-23 — lote com LLM mock', () => {
     assert.equal(tarefas[0].estado, 'feita');
   });
 });
+
+describe('GB-24 — subitens com mock', () => {
+  it('detalhe vira subitem com fonte; entregável distinto permanece nova tarefa', async () => {
+    store.upsertTarefa({ id: 'principal', empresa: 'Acme', projeto: 'Site', chatId: G1, titulo: 'Atualizar catálogo', estado: 'em_execucao', fontes: ['origem'] });
+    const ev = evolution({ [G1]: [reg(G1, 'detalhe', 1, 'Manter o nome científico em negrito no catálogo'), reg(G1, 'pedido', 2, 'Criar formulário de inscrição')] });
+    const l = llm({ a: [{ id: 'principal', m: ['detalhe'], e: 'pronta', s: ['Manter nome científico em negrito'] }], n: [{ m: ['pedido'], t: 'Criar formulário de inscrição' }] });
+    await iniciar(ev, l);
+    await lerAgora(opcoes(ev, l));
+    const tarefas = store.lerTarefas();
+    assert.equal(tarefas.length, 2);
+    const p = tarefas.find(t => t.id === 'principal');
+    assert.deepEqual(p.subitens, [{ texto: 'Manter nome científico em negrito', feito: false }]);
+    assert.equal(p.estado, 'em_execucao');
+    assert.ok(p.fontes.includes('detalhe'));
+    assert.ok(tarefas.some(t => t.titulo === 'Criar formulário de inscrição'));
+  });
+});

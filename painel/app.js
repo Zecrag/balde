@@ -658,12 +658,22 @@ function alternarEmpresa(empresa, abrir = !_empresasAbertas.has(empresa)) {
 
 function renderFeita(t) {
   return `
-  <div class="tarefa-compacta feita" data-id="${esc(t.id)}">
+  <div class="tarefa-concluida"><div class="tarefa-compacta feita" data-id="${esc(t.id)}">
     <label class="t-check" title="Desmarcar volta para Pra fazer">
       <input type="checkbox" checked data-check-id="${esc(t.id)}" aria-label="Desmarcar ${esc(t.titulo)}">
     </label>
     <span class="t-titulo">${esc(t.titulo)}</span>
-  </div>`;
+  </div>${renderSubitens(t)}</div>`;
+}
+
+function renderSubitens(t) {
+  if (!t.subitens?.length) return '';
+  return `<fieldset class="t-subitens"><legend>Checklist · ${t.subitens.filter(s => s.feito).length}/${t.subitens.length}</legend>
+    ${t.subitens.map((s, i) => `<label class="t-subitem ${s.feito ? 'concluido' : ''}">
+      <input type="checkbox" data-subitem-id="${esc(t.id)}" data-subitem-indice="${i}" ${s.feito ? 'checked' : ''}>
+      <span>${esc(s.texto)}</span></label>`).join('')}
+    <p class="subitem-status" role="status" aria-live="polite"></p>
+  </fieldset>`;
 }
 
 function renderTarefa(t) {
@@ -694,6 +704,7 @@ function renderTarefa(t) {
       <button class="t-titulo" type="button" data-expand-id="${id}" aria-expanded="${aberta}" aria-controls="detalhes-${id}">${esc(t.titulo || '(sem título)')}</button>
       <span class="t-info">
         <span class="t-meta">${esc(t.empresa || '–')} · ${esc(t.projeto || '–')}</span>
+        ${t.subitens?.length ? `<span class="t-subitens-conta" aria-label="${t.subitens.filter(s => s.feito).length} de ${t.subitens.length} subitens concluídos">${t.subitens.filter(s => s.feito).length}/${t.subitens.length}</span>` : ''}
         ${rotuloCriada ? `<span class="t-criada" title="Criada em ${esc(rotuloCriada)}">${esc(rotuloCriada)}</span>` : ''}
         <span class="chip chip-estado-${esc(t.estado)}">${esc(labelEstado(t.estado))}</span>
         ${rotulo ? `<span class="t-prazo ${clsPrazo}" title="Prazo">${esc(rotulo)}</span>` : ''}
@@ -703,6 +714,7 @@ function renderTarefa(t) {
 
     <div class="t-detalhes" id="detalhes-${id}" ${aberta ? '' : 'hidden'}>
       ${renderNota(t.nota || t.descricao)}
+      ${renderSubitens(t)}
       ${t.faltando?.length ? `<div class="tarefa-faltando"><strong>Falta:</strong> ${esc(t.faltando.join(' · '))}</div>` : ''}
       <div class="tarefa-fontes">
         <button class="mensagens-toggle" type="button" data-msg-id="${id}" data-chat-id="${esc(t.chatId ?? '')}" aria-expanded="false">${ICONE.msgs} Mensagens-fonte</button>
@@ -806,6 +818,29 @@ $main.addEventListener('toggle', e => {
 }, true);
 
 $main.addEventListener('change', async e => {
+  const sub = e.target.closest('[data-subitem-id]');
+  if (sub) {
+    const id = sub.dataset.subitemId, indice = Number(sub.dataset.subitemIndice);
+    const tarefa = _tarefas.find(t => t.id === id), item = tarefa?.subitens?.[indice];
+    if (!item) return;
+    const status = sub.closest('.t-subitens').querySelector('.subitem-status');
+    sub.disabled = true;
+    status.textContent = 'Salvando…';
+    try {
+      await patchTarefa(id, { subitem: { indice, texto: item.texto, feito: sub.checked } });
+      item.feito = sub.checked;
+      sub.disabled = false;
+      await fetchTarefas();
+      render();
+      $main.querySelector(`[data-subitem-id="${CSS.escape(id)}"][data-subitem-indice="${indice}"]`)?.focus();
+    } catch (err) {
+      sub.checked = item.feito;
+      sub.disabled = false;
+      status.textContent = 'Não foi possível salvar: ' + err.message;
+    }
+    return;
+  }
+
   const chk = e.target.closest('[data-check-id]');
   if (chk) {
     const estado = chk.checked ? 'feita' : 'pronta';
