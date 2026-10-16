@@ -80,7 +80,7 @@ describe('GB-30 — merge conservador no motor (LLM mockado)', () => {
     for (const t of ctx.store.lerTarefas()) assert.doesNotMatch(t.descricao, /\[Atualização\]/);
 
     assert.match(prompts[0].system, /Pedido DIFERENTE no mesmo grupo = tarefa NOVA/);
-    assert.match(prompts[0].system, /Na dúvida entre atualizar e criar, CRIE/);
+    assert.match(prompts[0].system, /Na dúvida, não invente trabalho/);
     assert.match(prompts[2].prompt, /Pedido diferente, mesmo do mesmo projeto, vai em "tarefas"/);
   });
 

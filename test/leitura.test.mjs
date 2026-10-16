@@ -336,3 +336,23 @@ describe('rotas /api/ler e /api/uso', () => {
     assert.equal((await fetch(`${base}/api/uso`, { method: 'DELETE', headers: { 'content-type': 'application/json' } })).status, 405);
   });
 });
+
+describe('GB-23 — lote com LLM mock', () => {
+  it('bloqueia tarefa inventada para saudação e confirmação', async () => {
+    const ev = evolution({ [G1]: [reg(G1, 'cumprimento', 1, 'Boa noite'), reg(G1, 'aceite', 2, 'Pode ser. Tenho outra reunião mais tarde.')] });
+    const l = llm({ n: [{ m: ['cumprimento'], t: 'Responder saudação' }, { m: ['aceite'], t: 'Confirmar reunião' }], a: [] });
+    await iniciar(ev, l);
+    await lerAgora(opcoes(ev, l));
+    assert.equal(store.lerTarefas().length, 0);
+  });
+  it('conclui cobrança com evidência textual mesmo quando mock sugere recebimento', async () => {
+    store.upsertTarefa({ id: 'cobranca-mock', empresa: 'Acme', projeto: 'Site', chatId: G1, titulo: 'Cobrar mensalidade', estado: 'pronta' });
+    const ev = evolution({ [G1]: [reg(G1, 'pagamento', 1, 'Segue o comprovante de pagamento')] });
+    const l = llm({ n: [{ m: ['pagamento'], t: 'Confirmar recebimento do documento' }], a: [] });
+    await iniciar(ev, l);
+    await lerAgora(opcoes(ev, l));
+    const tarefas = store.lerTarefas();
+    assert.equal(tarefas.length, 1);
+    assert.equal(tarefas[0].estado, 'feita');
+  });
+});

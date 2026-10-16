@@ -31,6 +31,7 @@ const EXCLUIR = [
   'conectores/baileys/node_modules',
   '.git',
   '.overclock-app',
+  '.overclick',
   '.agents',
   '.gemini',
   '.codex',
